@@ -1,0 +1,11 @@
+
+{
+    "development": {
+      "host": "localhost",
+      "username": "binary",
+      "port": 3306,
+      "password": "binary"
+      , "database":"binopt"
+      , "dialect": "mariadb"
+    }
+  }
