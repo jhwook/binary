@@ -19,3 +19,14 @@ exports.auth = (req, res, next) => {
         }
     }
 }
+
+exports.softauth = (req, res, next) => {
+    try {
+        req.decoded = jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
+        return next();
+    }
+    catch (error) {
+        req.decoded = false;
+        return next();
+    }
+}
