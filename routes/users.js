@@ -1,13 +1,11 @@
 var express = require("express");
-var router = express.Router();
 let { respok, resperr } = require("../utils/rest");
-const LOGGER = console.log;
 const { getobjtype } = require("../utils/common");
-const STRINGER = JSON.stringify;
-const { auth } = require('../utils/authMiddleware');
 const jwt = require('jsonwebtoken');
+const { auth } = require('../utils/authMiddleware');
 const db = require('../models')
-const SECRET_KEY = 'SECRET';
+const LOGGER = console.log;
+var router = express.Router();
 
 /* GET users listing. */
 router.get("/", function (req, res, next) {
@@ -95,7 +93,7 @@ router.post("/login/:type", async (req, res)=>{
     type: 'JWT',
     ...userinfo
   },
-  SECRET_KEY,
+  process.env.JWT_SECRET,
   {
     expiresIn: '24h',
     issuer: 'EXPRESS'
