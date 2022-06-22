@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('logdeposit', {
+  return sequelize.define('bookmarks', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER.UNSIGNED,
@@ -17,36 +17,32 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     uid: {
-      type: DataTypes.INTEGER,
-      allowNull: true
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
-    amount: {
-      type: DataTypes.BIGINT,
-      allowNull: true
+    assetsId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true,
+      references: {
+        model: 'assets',
+        key: 'id'
+      }
     },
-    type: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    typestr: {
-      type: DataTypes.STRING(80),
-      allowNull: true
-    },
-    status: {
+    active: {
       type: DataTypes.BOOLEAN,
       allowNull: true
     },
-    verifier: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    target: {
-      type: DataTypes.STRING(11),
+    typestr: {
+      type: DataTypes.STRING(40),
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'logdeposit',
+    tableName: 'bookmarks',
     timestamps: false,
     indexes: [
       {
@@ -55,6 +51,20 @@ module.exports = function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "id" },
+        ]
+      },
+      {
+        name: "FK_assets_bookmark",
+        using: "BTREE",
+        fields: [
+          { name: "assetsId" },
+        ]
+      },
+      {
+        name: "FK_users_bookmark",
+        using: "BTREE",
+        fields: [
+          { name: "uid" },
         ]
       },
     ]

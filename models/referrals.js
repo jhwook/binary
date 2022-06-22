@@ -17,12 +17,20 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     referer_uid: {
-      type: DataTypes.INTEGER,
-      allowNull: true
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
     referral_uid: {
-      type: DataTypes.INTEGER,
-      allowNull: true
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
     level: {
       type: DataTypes.INTEGER,
@@ -43,6 +51,20 @@ module.exports = function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "id" },
+        ]
+      },
+      {
+        name: "FK_users_referer",
+        using: "BTREE",
+        fields: [
+          { name: "referer_uid" },
+        ]
+      },
+      {
+        name: "FK_users_referral",
+        using: "BTREE",
+        fields: [
+          { name: "referral_uid" },
         ]
       },
     ]

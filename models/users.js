@@ -37,12 +37,13 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     oauth_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(200),
       allowNull: true
     },
     referercode: {
-      type: DataTypes.INTEGER,
-      allowNull: true
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: "MD5(3)"
     },
     uuid: {
       type: DataTypes.INTEGER,
@@ -76,6 +77,15 @@ module.exports = function(sequelize, DataTypes) {
     password: {
       type: DataTypes.STRING(300),
       allowNull: true
+    },
+    profileimage: {
+      type: DataTypes.STRING(300),
+      allowNull: true
+    },
+    typestr: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: "MAIN"
     }
   }, {
     sequelize,

@@ -8,6 +8,9 @@ const {getipaddress}=require('./utils/session')
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
+const assetsRouter = require('./routes/assets');
+const transactionsRouter = require('./routes/transactions');
+const bookmarksRouter = require('./routes/bookmarks');
 
 const LOGGER = console.log;
 
@@ -49,6 +52,9 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter)
+app.use('/assets', assetsRouter)
+app.use('/transactions', transactionsRouter)
+app.use('/bookmarks', bookmarksRouter)
 
 app.use(function(err, req, res, next) {
     // set locals, only providing error in development

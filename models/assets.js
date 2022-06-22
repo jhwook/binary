@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('logdeposit', {
+  return sequelize.define('assets', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER.UNSIGNED,
@@ -16,37 +16,50 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: true
     },
-    uid: {
-      type: DataTypes.INTEGER,
+    name: {
+      type: DataTypes.STRING(40),
       allowNull: true
     },
-    amount: {
-      type: DataTypes.BIGINT,
+    symbol: {
+      type: DataTypes.STRING(40),
       allowNull: true
     },
-    type: {
-      type: DataTypes.INTEGER,
+    baseAsset: {
+      type: DataTypes.STRING(40),
       allowNull: true
     },
-    typestr: {
+    targetAsset: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    tickerSrc: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    group: {
+      type: DataTypes.STRING(40),
+      allowNull: true,
+      comment: "1: crypto, 2:forex, 3:stock"
+    },
+    groupstr: {
+      type: DataTypes.STRING(40),
+      allowNull: true
+    },
+    uuid: {
+      type: DataTypes.STRING(60),
+      allowNull: true
+    },
+    imgurl: {
       type: DataTypes.STRING(80),
       allowNull: true
     },
-    status: {
-      type: DataTypes.BOOLEAN,
-      allowNull: true
-    },
-    verifier: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    target: {
-      type: DataTypes.STRING(11),
+    dispSymbol: {
+      type: DataTypes.STRING(20),
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'logdeposit',
+    tableName: 'assets',
     timestamps: false,
     indexes: [
       {

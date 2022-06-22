@@ -21,11 +21,11 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     ipaddress: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(300),
       allowNull: true
     },
     deviceos: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING(500),
       allowNull: true
     },
     browser: {

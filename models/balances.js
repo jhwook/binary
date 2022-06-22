@@ -8,19 +8,30 @@ module.exports = function(sequelize, DataTypes) {
       primaryKey: true
     },
     uid: {
-      type: DataTypes.INTEGER,
-      allowNull: true
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
     total: {
       type: DataTypes.BIGINT,
-      allowNull: true
+      allowNull: true,
+      defaultValue: 0
     },
     locked: {
       type: DataTypes.BIGINT,
-      allowNull: true
+      allowNull: true,
+      defaultValue: 0
     },
     avail: {
       type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: 0
+    },
+    typestr: {
+      type: DataTypes.STRING(20),
       allowNull: true
     }
   }, {
@@ -34,6 +45,13 @@ module.exports = function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "id" },
+        ]
+      },
+      {
+        name: "FK_users_uid",
+        using: "BTREE",
+        fields: [
+          { name: "uid" },
         ]
       },
     ]
