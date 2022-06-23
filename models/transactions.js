@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('loginhistories', {
+  return sequelize.define('transactions', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER.UNSIGNED,
@@ -20,29 +20,37 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.INTEGER,
       allowNull: true
     },
-    ipaddress: {
-      type: DataTypes.STRING(300),
+    amount: {
+      type: DataTypes.BIGINT,
       allowNull: true
     },
-    deviceos: {
-      type: DataTypes.STRING(500),
+    type: {
+      type: DataTypes.INTEGER,
       allowNull: true
     },
-    browser: {
-      type: DataTypes.STRING(100),
-      allowNull: true
-    },
-    country: {
-      type: DataTypes.STRING(100),
+    typestr: {
+      type: DataTypes.STRING(80),
       allowNull: true
     },
     status: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.BOOLEAN,
+      allowNull: true
+    },
+    verifier: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    target_uid: {
+      type: DataTypes.STRING(11),
+      allowNull: true
+    },
+    txhash: {
+      type: DataTypes.STRING(300),
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'loginhistories',
+    tableName: 'transactions',
     timestamps: false,
     indexes: [
       {

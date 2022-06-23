@@ -1,11 +1,29 @@
 var createError = require('http-errors');
 var bodyParser = require('body-parser')
 var express = require('express');
+var useragent = require('express-useragent');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-const {getipaddress}=require('./utils/session')
-
+var app = express();
+const { getipaddress } = require('./utils/session')
+/**
+ * Defined Socket Server
+ */
+const socket = require('./listener');
+const server = require('http').createServer(app);
+const io = require('socket.io')(server, {
+  cors: {
+    origin: '*',
+    methods: ["GET", "POST"],
+    transports: ['websocket', 'polling'],
+    credentials: true
+  },
+  allowEIO3: true
+})
+/**
+ * Defined Routers
+ */
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const assetsRouter = require('./routes/assets');
@@ -16,25 +34,26 @@ const LOGGER = console.log;
 
 const cors = require('cors');
 
-var app = express();
+
 
 // view engine setup
 app.use(cors());
+
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-app.use((req,res,next)=>{
-LOGGER(	getipaddress(req))
-next()
+app.use((req, res, next) => {
+  LOGGER(getipaddress(req))
+  next()
 })
 app.use(logger('dev'));
 app.use(express.json());
-
+app.use(useragent.express());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(bodyParser.json());
 
-app.use(function(e, req, res, next){
+app.use(function (e, req, res, next) {
   console.error(e);
   res.status(e.status || 500);
   res.render('error', {
@@ -54,21 +73,22 @@ app.use('/', indexRouter);
 app.use('/users', usersRouter)
 app.use('/assets', assetsRouter)
 app.use('/transactions', transactionsRouter)
-app.use('/bookmarks', bookmarksRouter)
+app.use('/bookmarks', bookmarksRouter);
 
-app.use(function(err, req, res, next) {
-    // set locals, only providing error in development
-    
-    res.locals.error = req.app.get('env') === 'development' ? err : {};
-  
-    // render the error page
-    res.status(err.status || 500);
-    res.render('error');
-  });
-  
-  const cron=require('node-cron'),moment=require('moment');
-  cron.schedule('*/1 * * * *',()=>{  console.log(moment().format('HH:mm:ss, YYYY-MM-DD') , '@binary' )
-  })
+app.use(function (err, req, res, next) {
+  // set locals, only providing error in development
+
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
+
+  // render the error page
+  res.status(err.status || 500);
+  res.render('error');
+});
+
+const cron = require('node-cron'), moment = require('moment');
+cron.schedule('*/1 * * * *', () => {
+  console.log(moment().format('HH:mm:ss, YYYY-MM-DD'), '@binary')
+})
 
 
 module.exports = app;

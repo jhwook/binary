@@ -5,13 +5,17 @@ const getobjtype=object=>{
     if (object === null) {
         return "null";
     }
-    if (object === undefined) {      return "undefined";
+    if (object === undefined) {      
+      return "undefined";
     }
-    if (object.constructor === stringConstructor) {      return "String";
+    if (object.constructor === stringConstructor) {      
+      return "String";
     }
-    if (object.constructor === arrayConstructor) {      return "Array";
+    if (object.constructor === arrayConstructor) {      
+      return "Array";
     }
-    if (object.constructor === objectConstructor) {      return "Object";
+    if (object.constructor === objectConstructor) {      
+      return "Object";
     }
     return null ;
   }

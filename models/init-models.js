@@ -4,12 +4,13 @@ var _assets = require("./assets");
 var _balances = require("./balances");
 var _bids = require("./bids");
 var _bookmarks = require("./bookmarks");
-var _deposits = require("./deposits");
 var _logdeposit = require("./logdeposit");
 var _logfeepayer = require("./logfeepayer");
 var _loginhistories = require("./loginhistories");
 var _logwithdraw = require("./logwithdraw");
 var _referrals = require("./referrals");
+var _settings = require("./settings");
+var _transactions = require("./transactions");
 var _users = require("./users");
 
 function initModels(sequelize) {
@@ -18,12 +19,13 @@ function initModels(sequelize) {
   var balances = _balances(sequelize, DataTypes);
   var bids = _bids(sequelize, DataTypes);
   var bookmarks = _bookmarks(sequelize, DataTypes);
-  var deposits = _deposits(sequelize, DataTypes);
   var logdeposit = _logdeposit(sequelize, DataTypes);
   var logfeepayer = _logfeepayer(sequelize, DataTypes);
   var loginhistories = _loginhistories(sequelize, DataTypes);
   var logwithdraw = _logwithdraw(sequelize, DataTypes);
   var referrals = _referrals(sequelize, DataTypes);
+  var settings = _settings(sequelize, DataTypes);
+  var transactions = _transactions(sequelize, DataTypes);
   var users = _users(sequelize, DataTypes);
 
   bookmarks.belongsTo(assets, { as: "asset", foreignKey: "assetsId"});
@@ -43,12 +45,13 @@ function initModels(sequelize) {
     balances,
     bids,
     bookmarks,
-    deposits,
     logdeposit,
     logfeepayer,
     loginhistories,
     logwithdraw,
     referrals,
+    settings,
+    transactions,
     users,
   };
 }
