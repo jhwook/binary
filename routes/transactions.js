@@ -67,13 +67,34 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
             console.log("WITHDRAW ON GOING")
             let {value: ADMINADDR} = await db['settings'].findOne({where:{name: 'ADMINADDR'}})
             let {value: ADMINPK} = await db['settings'].findOne({where:{name: 'ADMINPK'}})
-            let resp = await withdraw({ tokentype: tokentype, userid: id, amount, rxaddr, adminaddr: process.env.ADMINADDR, adminpk: process.env.ADMINPK });
+            let resp = await withdraw({ tokentype: tokentype, userid: id, amount, rxaddr, adminaddr: ADMINADDR, adminpk: ADMINPK });
             respok(res, null, null, { payload: { resp } });
             
             break;
-        case "DEPOSIT_TETHER":
-            break;
-        case "DEPOSIT_CURRENCY":
+        case "DEPOSIT":
+            if(tokentype=="CNY"){
+                let referer = await db['referrals'].findOne({
+                    where:{
+                        referral_uid: id
+                    },
+                    raw: true
+                })
+                await db['transactions'].create({
+                    uid: id,
+                    type: 2,
+                    typestr: "DEPOSIT_BRANCH",
+                    status: 0,
+                    target_uid: referer.referer_uid,
+                    localeAmount: amount,
+                    localeUnit: tokentype
+                })
+                .then(_=>{
+                    respok(res, 'SUBMITED')
+                })
+            }else{
+                //closeTx({type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
+            }
+            
             break;
         case "VERIFY":
             if(!isadmin && !isbranch){resperr(res, 'NOT-AN-ADMIN'); return;};

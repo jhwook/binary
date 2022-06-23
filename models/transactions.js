@@ -24,6 +24,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.BIGINT,
       allowNull: true
     },
+    unit: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
     type: {
       type: DataTypes.INTEGER,
       allowNull: true
@@ -33,7 +37,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     status: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.TINYINT,
       allowNull: true
     },
     verifier: {
@@ -46,6 +50,14 @@ module.exports = function(sequelize, DataTypes) {
     },
     txhash: {
       type: DataTypes.STRING(300),
+      allowNull: true
+    },
+    localeAmount: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+    localeUnit: {
+      type: DataTypes.STRING(50),
       allowNull: true
     }
   }, {

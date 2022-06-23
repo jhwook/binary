@@ -51,14 +51,17 @@ const withdraw = async (jdata) => {
               reject({ status: "ERR", message: error });
             } else {
               console.log(hash);
-              await db['balances'].increment(['total', 'avail'], {by: -1*amount, where:{uid: userid}} );
+              await db['balances'].increment(['total', 'avail'], {by: -1*amount, where:{uid: userid, typestr:"LIVE"}} );
               await db['transactions'].create({
                 uid: userid,
                 amount: amount,
+                unit: tokentype,
                 type: 0,
                 typestr: "WITHDRAW",
                 txhash: signedTx.transactionHash,
-                status: 1
+                status: 1,
+                localeAmount: amount,
+                localeUnit: tokentype,
               })
               resolve({ status: "OK", message: hash });
 

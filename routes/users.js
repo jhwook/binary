@@ -399,14 +399,21 @@ router.get("/balance", auth, async (req, res) => {
 
 router.get("/query/:tblname/:offset/:limit", auth, (req, res)=>{
   let {tblname, offset, limit} = req.params;
+  let {key, val} = req.query;
   let {id} = req.decoded;
+  let jfilter={}
+  if(key && val){
+    jfilter[key]=val
+  }
 
   db[tblname].findAndCountAll({
     where:{
-      uid: id
+      uid: id,
+      ...jfilter
     },
     offset: parseInt(+offset),
     limit: parseInt(+limit),
+    //order:[["createdat", 'DESC']]
   })
   .then(respdata=>{
     respok(res, null, null, {respdata})
