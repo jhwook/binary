@@ -5,7 +5,8 @@ const { softauth, auth } = require('../utils/authMiddleware');
 const db = require('../models')
 var crypto = require('crypto');
 const LOGGER = console.log;
-const {withdraw}=require("../services/withdrawal")
+const { withdraw }=require("../services/withdrawal");
+const { closeTx } = require("../services/closeTx");
 
 var router = express.Router();
 
@@ -42,7 +43,7 @@ router.patch("/demo/fund/:amount", auth, async(req, res)=>{
 
 router.patch("/live/:type/:amount", auth, async(req, res)=>{
     let { type, amount} = req.params;
-    let {rxaddr, txhash, tokentype} = req.body;
+    let {rxaddr, txhash, tokentype, senderaddr, name, card, bankCode, bankName} = req.body;
     let { id, isadmin, isbranch } = req.decoded;
     console.log("HELLO")
     if(!id){resperr(res, 'NOT-LOGGED-IN'); return;}
@@ -67,12 +68,18 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
             console.log("WITHDRAW ON GOING")
             let {value: ADMINADDR} = await db['settings'].findOne({where:{name: 'ADMINADDR'}})
             let {value: ADMINPK} = await db['settings'].findOne({where:{name: 'ADMINPK'}})
+            
             let resp = await withdraw({ tokentype: tokentype, userid: id, amount, rxaddr, adminaddr: ADMINADDR, adminpk: ADMINPK });
             respok(res, null, null, { payload: { resp } });
             
             break;
         case "DEPOSIT":
-            if(tokentype=="CNY"){
+            if(tokentype=="USDC" || tokentype=="USDT"){
+                if(!txhash){resperr(res, 'TXHASH-ISSUE'); return;}
+                respok(res, 'SUBMITED')
+                closeTx({txhash, type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
+            }else{
+                
                 let referer = await db['referrals'].findOne({
                     where:{
                         referral_uid: id
@@ -82,17 +89,20 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
                 await db['transactions'].create({
                     uid: id,
                     type: 2,
-                    typestr: "DEPOSIT_BRANCH",
+                    typestr: "LOCALEDEPOSIT",
                     status: 0,
                     target_uid: referer.referer_uid,
                     localeAmount: amount,
-                    localeUnit: tokentype
+                    localeUnit: tokentype,
+                    name: name,
+                    cardNum: card,
+                    bankCode: bankCode,
+                    bankName: bankName
+
                 })
                 .then(_=>{
                     respok(res, 'SUBMITED')
                 })
-            }else{
-                //closeTx({type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
             }
             
             break;

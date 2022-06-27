@@ -20,6 +20,10 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(200),
       allowNull: true
     },
+    countryNum: {
+      type: DataTypes.STRING(11),
+      allowNull: true
+    },
     phone: {
       type: DataTypes.STRING(100),
       allowNull: true
@@ -55,7 +59,7 @@ module.exports = function(sequelize, DataTypes) {
       defaultValue: 0
     },
     isadmin: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true,
       defaultValue: 0
     },
@@ -64,9 +68,14 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       defaultValue: 0
     },
-    isverified: {
+    mailVerified: {
       type: DataTypes.BOOLEAN,
-      allowNull: true,
+      allowNull: false,
+      defaultValue: 0
+    },
+    phoneVerified: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
       defaultValue: 0
     },
     active: {

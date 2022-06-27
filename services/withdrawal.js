@@ -10,6 +10,7 @@ const withdraw = async (jdata) => {
     //let {value: ADMINADDR} = await db['settings'].findOne({where:{name: 'ADMINADDR'}})
     //let {value: ADMINPK} = await db['settings'].findOne({where:{name: 'ADMINPK'}})
     console.log(adminaddr);
+    console.log(tokentype)
     console.log(contractaddr[tokentype])
     let amt2sendwei = amount.toString();
     const contract = new web3.eth.Contract(abierc20, contractaddr[tokentype]);

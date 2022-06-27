@@ -17,8 +17,8 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     uid: {
-      type: DataTypes.INTEGER,
-      allowNull: true
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false
     },
     amount: {
       type: DataTypes.BIGINT,
@@ -45,7 +45,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     target_uid: {
-      type: DataTypes.STRING(11),
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true
     },
     txhash: {
@@ -58,6 +58,22 @@ module.exports = function(sequelize, DataTypes) {
     },
     localeUnit: {
       type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    name: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    cardNum: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    bankCode: {
+      type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    bankName: {
+      type: DataTypes.STRING(100),
       allowNull: true
     }
   }, {

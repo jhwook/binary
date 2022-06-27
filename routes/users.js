@@ -8,10 +8,12 @@ const db = require('../models')
 const { lookup } = require('geoip-lite');
 var crypto = require('crypto');
 const LOGGER = console.log;
+let { Op }=db.Sequelize
 
 var router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const { sendMessage } = require("../services/twilio")
 
 async function generateRefCode(uid, i = 0) {
   let code = String(crypto.createHash('md5').update(uid).digest("hex")).slice(i, i + 10);
@@ -44,7 +46,7 @@ async function createJWT(jfilter) {
     where: {
       ...jfilter
     },
-    attributes: ['id', 'firstname', 'lastname', 'email', 'phone', 'level', 'referercode', 'isadmin', 'isbranch', 'isverified', 'profileimage'],
+    attributes: ['id', 'firstname', 'lastname', 'email', 'phone', 'level', 'referercode', 'isadmin', 'isbranch', 'profileimage', 'countryNum'],
     raw: true
   })
   console.log(userinfo)
@@ -83,29 +85,38 @@ router.get("/", function (req, res, next) {
 });
 
 router.get("/auth", auth, async (req, res) => {
-  console.log("asdfasd", req.decoded)
-  respok(res, 'AUTH', null, { result: req.decoded })
+  //console.log("asdfasd", req.decoded)
+  respok(res, 'AUTH', null, { result: req.decoded})
+})
+
+router.get("/refresh", auth, async(req, res)=>{
+  let {id} = req.decoded;
+  let jwt = createJWT({id})
+  respok(res, 'REFRESHED', null, { tokenId: jwt })
 })
 
 router.patch("/edit/:type", auth, async (req, res) => {
+  let{type}=req.params;
   let { refcode, firstname, lastname, } = req.body;
   let { id } = req.decoded;
-
+  console.log(req.decoded)
   if (type == 'ref') {
-    let refUser = db['users'].findOne({ where: { referercode: refcode } })
+    let refUser = await db['users'].findOne({ where: { referercode: refcode } })
+    if(!refUser){resperr(res, 'REFERER-NOT-FOUND'); return;}
     db['referrals'].create({
       referer_uid: refUser.id,
       referral_uid: id
     })
       .then(async _ => {
-        if (refUser.isbranch) {
+        if (refUser.isadmin == 1) {
           await db['users'].update({
-            typestr: 'BRANCH'
+            isbranch: 1
           }, {
             where: { id }
           })
         }
-        respok(res, 'EDITED')
+        let _jtoken = await createJWT({id})
+        respok(res, 'EDITED', null, {result: _jtoken})
         return;
       })
   } else if (type == 'userinfo') {
@@ -141,7 +152,7 @@ router.get("/refchk", auth, async (req, res) => {
  */
 router.post("/signup/:type", async (req, res) => {
   let { type } = req.params;
-  let { phone, password, email, token, refcode } = req.body;
+  let { countryNum, phone, password, email, token, refcode } = req.body;
   let jwttoken;
 
   /////////////////////////////////////////////// PRE CHECK ///////////////////////////////////////////////
@@ -232,7 +243,34 @@ router.post("/signup/:type", async (req, res) => {
     jwttoken = createJWT({ email: email.toLowerCase(), password })
 
   } else if (type == 'phone') {                    // MOBILE LOGIN
-    if (!phone || !password) { resperr(res, 'INVALID-DATA'); return; }
+    if (!phone || !password || !countryNum) { resperr(res, 'INVALID-DATA'); return; }
+    let respond = await db['users'].findOne({ where: { phone: phone, countryNum: countryNum } });
+    if (respond) { resperr(res, 'PHONE-EXIST'); return; }
+    await db['users'].create({
+      phone: phone,
+      countryNum: countryNum,
+      password
+    })
+      .then(async (new_acc) => {
+        let refcodegen = await generateRefCode("" + new_acc.id)
+        console.log(refcodegen)
+        await db['users'].update({
+          referercode: String(refcodegen)
+        }, {
+          where: { id: new_acc.id }
+        })
+        db['balances'].bulkCreate([{
+          uid: new_acc.id,
+          typestr: 'DEMO'
+        }, {
+          uid: new_acc.id,
+          typestr: 'LIVE'
+        }])
+
+
+      })
+    //TOKEN GENERATE
+    jwttoken = createJWT({ phone, countryNum, password })
 
   } else {
     resperr(res, 'INVALID-LOGIN-TYPE'); return;
@@ -244,16 +282,34 @@ router.post("/signup/:type", async (req, res) => {
     if (refcode) {
       let referer = await db['users'].findOne({ where: { referercode: refcode }, raw: true })
       if (referer) {
-        await db['referrals'].create({
-          referer_uid: referer.id,
-          referral_uid: jtoken.id
-        })
+        if (referer.isadmin == 1){
+          await db['referrals'].create({
+            referer_uid: referer.id,
+            referral_uid: jtoken.id,
+            
+          })
+          .then(async _=>{
+            await db['users'].update({
+              isbranch: 1
+            },{
+              where:{
+                id: jtoken.id
+              }
+            })
+          })
+        }else{
+          await db['referrals'].create({
+            referer_uid: referer.id,
+            referral_uid: jtoken.id
+          })
+      }
       } else {
         resperr(res, 'INVALID-CODE');
         return;
       }
     }
-    respok(res, 'TOKEN_CREATED', null, { result: jtoken });
+    _jtoken = await createJWT({ id: jtoken.id })
+    respok(res, 'TOKEN_CREATED', null, { result: _jtoken });
     return;
   } else {
     resperr(res, 'USER-NOT-FOUND');
@@ -267,9 +323,10 @@ router.post("/signup/:type", async (req, res) => {
 
 router.post("/login/:type", async (req, res) => {
   let { type } = req.params;
-  let { phone, password, email, user, token } = req.body;
+  let { countryNum, phone, password, email, user, token } = req.body;
   let { browser, os, platform } = req.useragent;
   let jwttoken;
+  let isFirstSocial = false;
   /////////////////////////////////////////////// GOOGLE LOGIN /////////////////////////////////////////////// 
   if (type == 'google') {
     if (!token) { resperr(res, 'INVALID-DATA'); return; }
@@ -287,6 +344,7 @@ router.post("/login/:type", async (req, res) => {
         return;
       }
     } else {          // ACCOUNT DOES NOT EXIST AND CREATE NEW ONE
+      isFirstSocial = true;
       await db['users'].create({
         email: email,
         firstname: given_name,
@@ -320,12 +378,14 @@ router.post("/login/:type", async (req, res) => {
     /////////////////////////////////////////////// EMAIL LOGIN /////////////////////////////////////////////// 
   } else if (type == 'email') {
     if (!email || !password) { resperr(res, 'INVALID-DATA'); return; }
-    let emailChk = awaitdb['users'].findOne({ where: { email: email.toLowerCase() } })
+    let emailChk = await db['users'].findOne({ where: { email: email.toLowerCase() } })
     if (!emailChk) { resperr(res, 'EMAIL-DOESNT-EXIST'); return; }
     jwttoken = createJWT({ email: email.toLowerCase(), password })
     /////////////////////////////////////////////// PHONE LOGIN /////////////////////////////////////////////// 
   } else if (type == 'phone') {
-    if (!phone || !password) { resperr(res, 'INVALID-DATA'); return; }
+    if (!phone || !password || !countryNum) { resperr(res, 'INVALID-DATA'); return; }
+    let phoneChk = await db['users'].findOne({ where: { phone, countryNum, password } })
+    if (!phoneChk) { resperr(res, 'EMAIL-DOESNT-EXIST'); return; }
     jwttoken = createJWT({ phone, password })
   } else {
     resperr(res, 'INVALID-LOGIN-TYPE');
@@ -353,7 +413,7 @@ router.post("/login/:type", async (req, res) => {
 
     })
 
-    respok(res, 'TOKEN_CREATED', null, { result: jtoken, ref });
+    respok(res, 'TOKEN_CREATED', null, { result: jtoken, ref, isFirstSocial });
     return;
   } else {
     resperr(res, 'USER-NOT-FOUND');
@@ -366,6 +426,26 @@ router.post("/login/:type", async (req, res) => {
   // let jwttoken = createJWT(userinfo)
 
   // respok(res, 'TOKEN_CREATED', null, {token: jwttoken})
+})
+
+router.post("/send/verification/:type", auth, async(req, res)=>{
+  let {type} = req.params;
+  let {id} = req.decoded;
+  let {phone, email, countryNum} = req.body;
+  const randNum = ""+Math.floor(100000 + Math.random() * 900000);
+  if (type == 0){ //PHONE
+    let a = await sendMessage(countryNum+phone, randNum);
+    await db['verifycode'].create({
+      uid: id,
+      code: randNum
+    })
+    .then(_=>{
+      respok(res, 'SENT')
+    })
+  }else if(type == 1){ //mail
+
+  }
+  
 })
 
 router.get("/verify/:type/:code", async (req, res) => {
@@ -404,6 +484,9 @@ router.get("/query/:tblname/:offset/:limit", auth, (req, res)=>{
   let jfilter={}
   if(key && val){
     jfilter[key]=val
+    if(val=='DEPOSIT'){
+      jfilter[key]={[Op.or]:['DEPOSIT', 'LOCALEDEPOSIT']}
+    }
   }
 
   db[tblname].findAndCountAll({
@@ -413,10 +496,26 @@ router.get("/query/:tblname/:offset/:limit", auth, (req, res)=>{
     },
     offset: parseInt(+offset),
     limit: parseInt(+limit),
-    //order:[["createdat", 'DESC']]
+    order:[["id", 'DESC']]
   })
   .then(respdata=>{
     respok(res, null, null, {respdata})
+  })
+})
+
+router.patch("/profile", auth, async (req, res)=>{
+  let { firstName, lastName, email } = req.body;
+  let {id} = req.decoded;
+  db['users'].update({
+    firstname: firstName,
+    lastname, lastName
+  },{
+    where:{
+      id
+    }
+  })
+  .then(_=>{
+    respok(res, 'CHANGED')
   })
 })
 
