@@ -1,5 +1,27 @@
 
 const abi = [
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        name: "_from",
+        type: "address",
+      },
+      {
+        indexed: true,
+        name: "_to",
+        type: "address",
+      },
+      {
+        indexed: false,
+        name: "_value",
+        type: "uint256",
+      },
+    ],
+    name: "Transfer",
+    type: "event",
+  },
     {
       name: 'approve',
       type: 'function',

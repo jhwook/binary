@@ -12,6 +12,7 @@ var _referrals = require("./referrals");
 var _settings = require("./settings");
 var _transactions = require("./transactions");
 var _users = require("./users");
+var _userwallets = require("./userwallets");
 var _verifycode = require("./verifycode");
 
 function initModels(sequelize) {
@@ -28,6 +29,7 @@ function initModels(sequelize) {
   var settings = _settings(sequelize, DataTypes);
   var transactions = _transactions(sequelize, DataTypes);
   var users = _users(sequelize, DataTypes);
+  var userwallets = _userwallets(sequelize, DataTypes);
   var verifycode = _verifycode(sequelize, DataTypes);
 
   bookmarks.belongsTo(assets, { as: "asset", foreignKey: "assetsId"});
@@ -40,6 +42,8 @@ function initModels(sequelize) {
   users.hasMany(referrals, { as: "referrals", foreignKey: "referer_uid"});
   referrals.belongsTo(users, { as: "referral_u", foreignKey: "referral_uid"});
   users.hasMany(referrals, { as: "referral_u_referrals", foreignKey: "referral_uid"});
+  userwallets.belongsTo(users, { as: "uid_user", foreignKey: "uid"});
+  users.hasMany(userwallets, { as: "userwallets", foreignKey: "uid"});
 
   return {
     _sample_created_updated,
@@ -55,6 +59,7 @@ function initModels(sequelize) {
     settings,
     transactions,
     users,
+    userwallets,
     verifycode,
   };
 }

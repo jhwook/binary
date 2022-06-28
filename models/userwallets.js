@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('verifycode', {
+  return sequelize.define('userwallets', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER.UNSIGNED,
@@ -18,19 +18,23 @@ module.exports = function(sequelize, DataTypes) {
     },
     uid: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
-    code: {
-      type: DataTypes.INTEGER,
+    walletaddress: {
+      type: DataTypes.STRING(300),
       allowNull: true
     },
-    expiry: {
-      type: DataTypes.BIGINT,
+    privatekey: {
+      type: DataTypes.STRING(300),
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'verifycode',
+    tableName: 'userwallets',
     timestamps: false,
     indexes: [
       {
@@ -39,6 +43,13 @@ module.exports = function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "id" },
+        ]
+      },
+      {
+        name: "FK_users_wallet",
+        using: "BTREE",
+        fields: [
+          { name: "uid" },
         ]
       },
     ]

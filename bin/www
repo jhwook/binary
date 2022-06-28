@@ -3,7 +3,6 @@ var listener = require('../listener')
 var debug = require('debug')('bin-api');
 var http = require('http');
 
-
 require('dotenv').config()
 console.log(process.env.JWT_SECRET)
 const TESTPORT = 30708;

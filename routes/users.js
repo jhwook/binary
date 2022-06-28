@@ -9,6 +9,7 @@ const { lookup } = require('geoip-lite');
 var crypto = require('crypto');
 const LOGGER = console.log;
 let { Op }=db.Sequelize
+const {web3} = require( '../configs/configweb3');
 
 var router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
@@ -49,12 +50,33 @@ async function createJWT(jfilter) {
     attributes: ['id', 'firstname', 'lastname', 'email', 'phone', 'level', 'referercode', 'isadmin', 'isbranch', 'profileimage', 'countryNum'],
     raw: true
   })
+
+  let useraddress = await db['userwallets'].findOne({
+    attributes: ['walletaddress'],
+    where:{
+      uid: userinfo.id
+    },
+    raw: true
+  })
+  
+    if(!useraddress){
+      let walletgen = await web3.eth.accounts.create(userinfo.id+"BINARY@##12");
+      await db['userwallets'].create({
+        uid: userinfo.id,
+        walletaddress: walletgen.address,
+        privatekey: walletgen.privateKey
+      })
+      useraddress = walletgen.address
+    }
+
+
+
   console.log(userinfo)
   if (!userinfo) { return false }
   let token = jwt.sign({
     type: 'JWT',
     ...userinfo,
-
+    wallet: useraddress
 
   },
     process.env.JWT_SECRET,
@@ -229,13 +251,14 @@ router.post("/signup/:type", async (req, res) => {
         }, {
           where: { id: new_acc.id }
         })
-        db['balances'].bulkCreate([{
+        await db['balances'].bulkCreate([{
           uid: new_acc.id,
           typestr: 'DEMO'
         }, {
           uid: new_acc.id,
           typestr: 'LIVE'
         }])
+        
 
 
       })
@@ -308,6 +331,21 @@ router.post("/signup/:type", async (req, res) => {
         return;
       }
     }
+    await db['userwallets'].findOne({
+      where:{
+        uid: jtoken.id
+      }
+    }).then(async res =>{
+      if(!res){
+        let walletgen = await web3.eth.accounts.create(jtoken.id+"BINARY@##12");
+    await db['userwallets'].create({
+      uid: jtoken.id,
+      walletaddress: walletgen.address,
+      privatekey: walletgen.privateKey
+    })
+      }
+    })
+    
     _jtoken = await createJWT({ id: jtoken.id })
     respok(res, 'TOKEN_CREATED', null, { result: _jtoken });
     return;

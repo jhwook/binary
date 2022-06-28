@@ -7,6 +7,7 @@ var crypto = require('crypto');
 const LOGGER = console.log;
 const { withdraw }=require("../services/withdrawal");
 const { closeTx } = require("../services/closeTx");
+const {watchTransfers} = require('../services/trackTx');
 
 var router = express.Router();
 
@@ -39,6 +40,15 @@ router.patch("/demo/fund/:amount", auth, async(req, res)=>{
             })
         }
     })
+})
+
+router.post("/listen/:type", auth, async(req, res)=>{
+    let{type} = req.params;
+    let {id, wallet} = req.decoded;
+    if(!id){resperr(res, 'USER-NOT-FOUND'); return;}
+    watchTransfers(wallet, type, id);
+    respok(res,'LISTENING-STARTED')
+    
 })
 
 router.patch("/live/:type/:amount", auth, async(req, res)=>{
