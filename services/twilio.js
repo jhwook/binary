@@ -1,5 +1,6 @@
-const accountSid = "ACcc50295831df1a796cc95cad7b6c5e29"
-const authToken = "0eb17564b185d63a59efc9742ac85255"
+require('dotenv').config({path: "../.env"})
+const accountSid = process.env.TWILIO_ACCOUNT_SID
+const authToken = process.env.TWILIO_AUTH_TOKEN
 const client = require('twilio')(accountSid, authToken);
 
 
