@@ -18,7 +18,11 @@ module.exports = function(sequelize, DataTypes) {
     },
     uid: {
       type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false
+      allowNull: false,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     },
     amount: {
       type: DataTypes.BIGINT,
@@ -87,6 +91,13 @@ module.exports = function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "id" },
+        ]
+      },
+      {
+        name: "FK_users_transactions_uid",
+        using: "BTREE",
+        fields: [
+          { name: "uid" },
         ]
       },
     ]

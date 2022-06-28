@@ -57,7 +57,7 @@ async function createJWT(jfilter) {
       uid: userinfo.id
     },
     raw: true
-  })
+  }).walletaddress
   
     if(!useraddress){
       let walletgen = await web3.eth.accounts.create(userinfo.id+"BINARY@##12");

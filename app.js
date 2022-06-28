@@ -30,6 +30,7 @@ const assetsRouter = require('./routes/assets');
 const transactionsRouter = require('./routes/transactions');
 const bookmarksRouter = require('./routes/bookmarks');
 const queryRouter = require('./routes/queries');
+const betRouter = require('./routes/bets');
 
 const LOGGER = console.log;
 
@@ -76,6 +77,7 @@ app.use('/assets', assetsRouter)
 app.use('/transactions', transactionsRouter)
 app.use('/bookmarks', bookmarksRouter);
 app.use('/queries', queryRouter);
+app.use('/bets', betRouter);
 
 app.use(function (err, req, res, next) {
   // set locals, only providing error in development

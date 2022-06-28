@@ -2,9 +2,11 @@ var DataTypes = require("sequelize").DataTypes;
 var __sample_created_updated = require("./_sample_created_updated");
 var _assets = require("./assets");
 var _balances = require("./balances");
+var _bets = require("./bets");
 var _bids = require("./bids");
 var _bookmarks = require("./bookmarks");
 var _country_code = require("./country_code");
+var _logbets = require("./logbets");
 var _logdeposit = require("./logdeposit");
 var _logfeepayer = require("./logfeepayer");
 var _loginhistories = require("./loginhistories");
@@ -19,9 +21,11 @@ function initModels(sequelize) {
   var _sample_created_updated = __sample_created_updated(sequelize, DataTypes);
   var assets = _assets(sequelize, DataTypes);
   var balances = _balances(sequelize, DataTypes);
+  var bets = _bets(sequelize, DataTypes);
   var bids = _bids(sequelize, DataTypes);
   var bookmarks = _bookmarks(sequelize, DataTypes);
   var country_code = _country_code(sequelize, DataTypes);
+  var logbets = _logbets(sequelize, DataTypes);
   var logdeposit = _logdeposit(sequelize, DataTypes);
   var logfeepayer = _logfeepayer(sequelize, DataTypes);
   var loginhistories = _loginhistories(sequelize, DataTypes);
@@ -42,6 +46,8 @@ function initModels(sequelize) {
   users.hasMany(referrals, { as: "referrals", foreignKey: "referer_uid"});
   referrals.belongsTo(users, { as: "referral_u", foreignKey: "referral_uid"});
   users.hasMany(referrals, { as: "referral_u_referrals", foreignKey: "referral_uid"});
+  transactions.belongsTo(users, { as: "uid_user", foreignKey: "uid"});
+  users.hasMany(transactions, { as: "transactions", foreignKey: "uid"});
   userwallets.belongsTo(users, { as: "uid_user", foreignKey: "uid"});
   users.hasMany(userwallets, { as: "userwallets", foreignKey: "uid"});
 
@@ -49,9 +55,11 @@ function initModels(sequelize) {
     _sample_created_updated,
     assets,
     balances,
+    bets,
     bids,
     bookmarks,
     country_code,
+    logbets,
     logdeposit,
     logfeepayer,
     loginhistories,
