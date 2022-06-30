@@ -18,18 +18,16 @@ const closeTx = async (jargs) =>{
         , TX_POLL_OPTIONS)
     .then(async txreceipt =>{
         let {status} = txreceipt;
-
+        console.log(status, type)
         switch (type){
             case "DEPOSIT":
                 await db['transactions']
-                .create({
-                    uid: userid,
-                    amount: amount,
-                    type: 1,
-                    typestr: type,
-                    unit: tokentype,
+                .update({
                     status: 1,
-                    txhash: txhash
+                },{
+                    where:{
+                        txhash: txhash
+                    }
                 })
                 .then(_=>{
                     db['balances']

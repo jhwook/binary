@@ -43,6 +43,18 @@ const withdraw = async (jdata) => {
           transaction,
           adminpk
         );
+        await db['transactions'].create({
+          uid: userid,
+          amount: amount,
+          unit: tokentype,
+          type: 0,
+          typestr: "WITHDRAW",
+          txhash: signedTx.transactionHash,
+          status: 0,
+          localeAmount: amount,
+          localeUnit: tokentype,
+        })
+
         console.log(signedTx)
         web3.eth.sendSignedTransaction(
           signedTx.rawTransaction,
@@ -53,16 +65,13 @@ const withdraw = async (jdata) => {
             } else {
               console.log(hash);
               await db['balances'].increment(['total', 'avail'], {by: -1*amount, where:{uid: userid, typestr:"LIVE"}} );
-              await db['transactions'].create({
-                uid: userid,
-                amount: amount,
-                unit: tokentype,
-                type: 0,
-                typestr: "WITHDRAW",
-                txhash: signedTx.transactionHash,
+              await db['transactions'].update({
                 status: 1,
-                localeAmount: amount,
-                localeUnit: tokentype,
+              },{
+                where:{
+                  typestr: "WITHDRAW",
+                  txhash: signedTx.transactionHash,
+                }
               })
               resolve({ status: "OK", message: hash });
 

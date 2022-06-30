@@ -11,23 +11,31 @@ const LOGGER = console.log;
 
 var router = express.Router();
 
-router.post('/join/:assetId/:amount/:dur', auth, async (req, res)=>{
-    let { assetId, amount, dur } = req.params;
+router.post('/join/:type/:assetId/:amount/:dur/:side', auth, async (req, res)=>{
+    //side가 0일 경우 LOW, 1일 경우 HIGH로 취급한다.
+    let { assetId, amount, dur, side, type } = req.params;
     let { id } = req.decoded;
-    if(!assetId || !amount ){resperr(res, 'INVALID-DATA'); return;}
-    let balance = await db['balances'].findOne({where:{uid: id}, raw: true});
-    if (balance.avail < amount) {resperr(res, 'INSUFICIENT-BALANCE'); return;}
+    if(!assetId || !amount || !type ){resperr(res, 'INVALID-DATA'); return;}
+    let balance = await db['balances'].findOne({where:{uid: id, typestr: type}, raw: true});
+    console.log(
+        'BIDDED',
+        type,
+        `${id}, ${balance.avail}, ${amount}`
+    )
+    if (Number(balance.avail) < Number(amount)) {resperr(res, 'INSUFICIENT-BALANCE'); return;}
     let starting = moment().add(1, 'minutes').set('second', 0);
-    let expiry = moment().add(1, 'minutes').add(dur, 'minutes').set('second', 0);
+    let expiry = moment().add(Number(dur)+1, 'minutes').set('second', 0);
     await db['bets'].create({
         uid: id,
         assetId: assetId,
         amount: amount,
         starting: starting.unix(),
-        expiry: expiry.unix()
+        expiry: expiry.unix(),
+        side: side,
+        type: type
     })
     .then(_=>{
-        respok(res, 'BIDDED')
+        respok(res, 'BIDDED', null, {expiry: expiry, starting: starting})
     })
     
 })

@@ -78,7 +78,6 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
             console.log("WITHDRAW ON GOING")
             let {value: ADMINADDR} = await db['settings'].findOne({where:{name: 'ADMINADDR'}})
             let {value: ADMINPK} = await db['settings'].findOne({where:{name: 'ADMINPK'}})
-            
             let resp = await withdraw({ tokentype: tokentype, userid: id, amount, rxaddr, adminaddr: ADMINADDR, adminpk: ADMINPK });
             respok(res, null, null, { payload: { resp } });
             
@@ -86,20 +85,30 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
         case "DEPOSIT":
             if(tokentype=="USDC" || tokentype=="USDT"){
                 if(!txhash){resperr(res, 'TXHASH-ISSUE'); return;}
+                await db['transactions'].create({
+                    uid: id,
+                    amount: amount,
+                    unit: tokentype,
+                    status: 0,
+                    typestr: "DEPOSIT",
+                    type: 1,
+                    txhash: txhash
+                })
                 respok(res, 'SUBMITED')
+                
                 closeTx({txhash, type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
             }else{
-                
                 let referer = await db['referrals'].findOne({
                     where:{
                         referral_uid: id
                     },
                     raw: true
                 })
+                if(!referer){resperr(res, 'REFERER-NOT-FOUND'); return;}
                 await db['transactions'].create({
                     uid: id,
                     type: 2,
-                    typestr: "LOCALEDEPOSIT",
+                    typestr: "DEPOSIT",
                     status: 0,
                     target_uid: referer.referer_uid,
                     localeAmount: amount,
@@ -108,7 +117,6 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
                     cardNum: card,
                     bankCode: bankCode,
                     bankName: bankName
-
                 })
                 .then(_=>{
                     respok(res, 'SUBMITED')

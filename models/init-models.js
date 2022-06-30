@@ -6,8 +6,6 @@ var _bets = require("./bets");
 var _bids = require("./bids");
 var _bookmarks = require("./bookmarks");
 var _country_code = require("./country_code");
-var _logbets = require("./logbets");
-var _logdeposit = require("./logdeposit");
 var _logfeepayer = require("./logfeepayer");
 var _loginhistories = require("./loginhistories");
 var _referrals = require("./referrals");
@@ -25,8 +23,6 @@ function initModels(sequelize) {
   var bids = _bids(sequelize, DataTypes);
   var bookmarks = _bookmarks(sequelize, DataTypes);
   var country_code = _country_code(sequelize, DataTypes);
-  var logbets = _logbets(sequelize, DataTypes);
-  var logdeposit = _logdeposit(sequelize, DataTypes);
   var logfeepayer = _logfeepayer(sequelize, DataTypes);
   var loginhistories = _loginhistories(sequelize, DataTypes);
   var referrals = _referrals(sequelize, DataTypes);
@@ -59,8 +55,6 @@ function initModels(sequelize) {
     bids,
     bookmarks,
     country_code,
-    logbets,
-    logdeposit,
     logfeepayer,
     loginhistories,
     referrals,

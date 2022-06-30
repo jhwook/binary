@@ -40,9 +40,7 @@ async function verify(token) {
 }
 
 async function createJWT(jfilter) {
-  console.log(process.env.JWT_SECRET)
-  console.log(jfilter);
-
+  let userwallet;
   let userinfo = await db['users'].findOne({
     where: {
       ...jfilter
@@ -51,23 +49,28 @@ async function createJWT(jfilter) {
     raw: true
   })
 
-  let useraddress = await db['userwallets'].findOne({
+  await db['userwallets'].findOne({
     attributes: ['walletaddress'],
     where:{
       uid: userinfo.id
     },
     raw: true
-  }).walletaddress
-  
-    if(!useraddress){
+  })
+  .then(async result=>{
+    if(!result){
       let walletgen = await web3.eth.accounts.create(userinfo.id+"BINARY@##12");
       await db['userwallets'].create({
         uid: userinfo.id,
         walletaddress: walletgen.address,
         privatekey: walletgen.privateKey
       })
-      useraddress = walletgen.address
+      userwallet = walletgen.address
+    }else{
+      userwallet = result.walletaddress
     }
+  })
+  
+    
 
 
 
@@ -76,7 +79,7 @@ async function createJWT(jfilter) {
   let token = jwt.sign({
     type: 'JWT',
     ...userinfo,
-    wallet: useraddress
+    wallet: userwallet
 
   },
     process.env.JWT_SECRET,
@@ -90,32 +93,31 @@ async function createJWT(jfilter) {
   };
 }
 
-// router.get('/:token', async (req, res)=>{
-//   let {token} =req.params;
-//   //let respond = await verify(token)
-//   db['balances'].create({
-//     uid: token
-//   }).then(x=>{
-//     console.log(x.id);
-//     respok(res, x.id)
-//   })
-//   respok(res, respond)
-// })
 /* GET users listing. */
 router.get("/", function (req, res, next) {
   res.send("respond with a resource");
 });
 
+/**
+ * Check users auth status
+ */
+
 router.get("/auth", auth, async (req, res) => {
-  //console.log("asdfasd", req.decoded)
   respok(res, 'AUTH', null, { result: req.decoded})
 })
+
+/**
+ * Refresh token
+ */
 
 router.get("/refresh", auth, async(req, res)=>{
   let {id} = req.decoded;
   let jwt = createJWT({id})
   respok(res, 'REFRESHED', null, { tokenId: jwt })
 })
+/**
+ * EDIT users
+ */
 
 router.patch("/edit/:type", auth, async (req, res) => {
   let{type}=req.params;
@@ -156,6 +158,10 @@ router.patch("/edit/:type", auth, async (req, res) => {
   }
 })
 
+/**
+ * Check if user referred or not
+ */
+
 router.get("/refchk", auth, async (req, res) => {
   let { id } = req.decoded;
 
@@ -169,9 +175,11 @@ router.get("/refchk", auth, async (req, res) => {
     return;
   }
 })
+
 /**
  * REGISTER ENDPOINT
  */
+
 router.post("/signup/:type", async (req, res) => {
   let { type } = req.params;
   let { countryNum, phone, password, email, token, refcode } = req.body;
@@ -237,10 +245,10 @@ router.post("/signup/:type", async (req, res) => {
     /////////////////////////////////////////////// EMAIL REGISTER /////////////////////////////////////////////// 
   } else if (type == 'email') {                    //EMAIL LOGIN
     if (!email || !password) { resperr(res, 'INVALID-DATA'); return; }
-    let respond = await db['users'].findOne({ where: { email: email.toLowerCase() } });
+    let respond = await db['users'].findOne({ where: { email: email } });
     if (respond) { resperr(res, 'EMAIL-EXIST'); return; }
     await db['users'].create({
-      email: email.toLowerCase(),
+      email: email,
       password
     })
       .then(async (new_acc) => {
@@ -263,7 +271,7 @@ router.post("/signup/:type", async (req, res) => {
 
       })
     //TOKEN GENERATE
-    jwttoken = createJWT({ email: email.toLowerCase(), password })
+    jwttoken = createJWT({ email: email, password })
 
   } else if (type == 'phone') {                    // MOBILE LOGIN
     if (!phone || !password || !countryNum) { resperr(res, 'INVALID-DATA'); return; }
@@ -298,8 +306,6 @@ router.post("/signup/:type", async (req, res) => {
   } else {
     resperr(res, 'INVALID-LOGIN-TYPE'); return;
   }
-
-  console.log("asdfasdf", await jwttoken)
   let jtoken = await jwttoken;
   if (jtoken) {
     if (refcode) {
@@ -416,14 +422,16 @@ router.post("/login/:type", async (req, res) => {
     /////////////////////////////////////////////// EMAIL LOGIN /////////////////////////////////////////////// 
   } else if (type == 'email') {
     if (!email || !password) { resperr(res, 'INVALID-DATA'); return; }
-    let emailChk = await db['users'].findOne({ where: { email: email.toLowerCase() } })
+    let emailChk = await db['users'].findOne({ where: { email: email } })
     if (!emailChk) { resperr(res, 'EMAIL-DOESNT-EXIST'); return; }
-    jwttoken = createJWT({ email: email.toLowerCase(), password })
+    if (emailChk.password != password){resperr(res, 'INVALID-PASSWORD'); return;}
+    jwttoken = createJWT({ email: email, password })
     /////////////////////////////////////////////// PHONE LOGIN /////////////////////////////////////////////// 
   } else if (type == 'phone') {
     if (!phone || !password || !countryNum) { resperr(res, 'INVALID-DATA'); return; }
-    let phoneChk = await db['users'].findOne({ where: { phone, countryNum, password } })
-    if (!phoneChk) { resperr(res, 'EMAIL-DOESNT-EXIST'); return; }
+    let phoneChk = await db['users'].findOne({ where: { phone, countryNum}, raw: true });
+    if (!phoneChk) { resperr(res, 'PHONE-NUMBER-DOESNT-EXIST'); return; }
+    if(phoneChk.password != password){resperr(res, 'INVALID-PASSWORD'); return;}
     jwttoken = createJWT({ phone, password })
   } else {
     resperr(res, 'INVALID-LOGIN-TYPE');
@@ -516,6 +524,8 @@ router.get("/balance", auth, async (req, res) => {
 })
 
 router.get("/query/:tblname/:offset/:limit", auth, (req, res)=>{
+
+  let {startDate, endDate} = req.query;
   let {tblname, offset, limit} = req.params;
   let {key, val} = req.query;
   let {id} = req.decoded;
@@ -524,6 +534,14 @@ router.get("/query/:tblname/:offset/:limit", auth, (req, res)=>{
     jfilter[key]=val
     if(val=='DEPOSIT'){
       jfilter[key]={[Op.or]:['DEPOSIT', 'LOCALEDEPOSIT']}
+    }
+  }
+  if(startDate && endDate){
+    jfilter={
+      ...jfilter,
+      createdat: {
+        [Op.between]: [startDate, endDate],
+      }
     }
   }
 

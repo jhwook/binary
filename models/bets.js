@@ -37,7 +37,15 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: false
     },
     startingPrice: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.STRING(20),
+      allowNull: true
+    },
+    side: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true
+    },
+    type: {
+      type: DataTypes.STRING(50),
       allowNull: true
     }
   }, {

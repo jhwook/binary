@@ -36,7 +36,7 @@ router.post('/:type/:targetId', auth, async (req, res) => {
                         .destroy({
                             where: {
                                 uid: id,
-                                assetId: targetId
+                                assetsId: targetId
                             },
                         })
                         .then(_ => {
@@ -46,7 +46,7 @@ router.post('/:type/:targetId', auth, async (req, res) => {
                     db['bookmarks']
                         .create({
                             uid: id,
-                            assetId: targetId,
+                            assetsId: targetId,
                             typestr: 'ASSETS'
                         })
                         .then(_ => {

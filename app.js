@@ -10,17 +10,20 @@ const { getipaddress } = require('./utils/session')
 /**
  * Defined Socket Server
  */
+
 const socket = require('./listener');
 const server = require('http').createServer(app);
 const io = require('socket.io')(server, {
   cors: {
     origin: '*',
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     transports: ['websocket', 'polling'],
     credentials: true
   },
   allowEIO3: true
 })
+
+
 /**
  * Defined Routers
  */
@@ -35,8 +38,6 @@ const betRouter = require('./routes/bets');
 const LOGGER = console.log;
 
 const cors = require('cors');
-
-
 
 // view engine setup
 app.use(cors());

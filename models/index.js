@@ -50,7 +50,7 @@ Object.keys(db).forEach((modelName) => {
 db['bookmarks'].hasMany(db['users'], {foreignKey:'id', sourceKey: 'uid'})
 db['users'].belongsTo(db['bookmarks'], {foreignKey:'id', targetKey:'uid'})
 
-db['bookmarks'].hasMany(db['assets'], {foreignKey:'id', sourceKey: 'assetsId'})
+db['bookmarks'].hasOne(db['assets'], {foreignKey:'id', sourceKey: 'assetsId'})
 db['assets'].belongsTo(db['bookmarks'], {foreignKey:'id', targetKey:'assetsId'})
 
 
