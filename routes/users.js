@@ -8,8 +8,8 @@ const db = require('../models')
 const { lookup } = require('geoip-lite');
 var crypto = require('crypto');
 const LOGGER = console.log;
-let { Op }=db.Sequelize
-const {web3} = require( '../configs/configweb3');
+let { Op } = db.Sequelize
+const { web3 } = require('../configs/configweb3');
 
 var router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
@@ -51,26 +51,26 @@ async function createJWT(jfilter) {
 
   await db['userwallets'].findOne({
     attributes: ['walletaddress'],
-    where:{
+    where: {
       uid: userinfo.id
     },
     raw: true
   })
-  .then(async result=>{
-    if(!result){
-      let walletgen = await web3.eth.accounts.create(userinfo.id+"BINARY@##12");
-      await db['userwallets'].create({
-        uid: userinfo.id,
-        walletaddress: walletgen.address,
-        privatekey: walletgen.privateKey
-      })
-      userwallet = walletgen.address
-    }else{
-      userwallet = result.walletaddress
-    }
-  })
-  
-    
+    .then(async result => {
+      if (!result) {
+        let walletgen = await web3.eth.accounts.create(userinfo.id + "BINARY@##12");
+        await db['userwallets'].create({
+          uid: userinfo.id,
+          walletaddress: walletgen.address,
+          privatekey: walletgen.privateKey
+        })
+        userwallet = walletgen.address
+      } else {
+        userwallet = result.walletaddress
+      }
+    })
+
+
 
 
 
@@ -103,16 +103,16 @@ router.get("/", function (req, res, next) {
  */
 
 router.get("/auth", auth, async (req, res) => {
-  respok(res, 'AUTH', null, { result: req.decoded})
+  respok(res, 'AUTH', null, { result: req.decoded })
 })
 
 /**
  * Refresh token
  */
 
-router.get("/refresh", auth, async(req, res)=>{
-  let {id} = req.decoded;
-  let jwt = createJWT({id})
+router.get("/refresh", auth, async (req, res) => {
+  let { id } = req.decoded;
+  let jwt = createJWT({ id })
   respok(res, 'REFRESHED', null, { tokenId: jwt })
 })
 /**
@@ -120,13 +120,13 @@ router.get("/refresh", auth, async(req, res)=>{
  */
 
 router.patch("/edit/:type", auth, async (req, res) => {
-  let{type}=req.params;
+  let { type } = req.params;
   let { refcode, firstname, lastname, } = req.body;
   let { id } = req.decoded;
   console.log(req.decoded)
   if (type == 'ref') {
     let refUser = await db['users'].findOne({ where: { referercode: refcode } })
-    if(!refUser){resperr(res, 'REFERER-NOT-FOUND'); return;}
+    if (!refUser) { resperr(res, 'REFERER-NOT-FOUND'); return; }
     db['referrals'].create({
       referer_uid: refUser.id,
       referral_uid: id
@@ -139,8 +139,8 @@ router.patch("/edit/:type", auth, async (req, res) => {
             where: { id }
           })
         }
-        let _jtoken = await createJWT({id})
-        respok(res, 'EDITED', null, {result: _jtoken})
+        let _jtoken = await createJWT({ id })
+        respok(res, 'EDITED', null, { result: _jtoken })
         return;
       })
   } else if (type == 'userinfo') {
@@ -181,7 +181,9 @@ router.get("/refchk", auth, async (req, res) => {
  */
 
 router.post("/signup/:type", async (req, res) => {
+  let transaction = await db.sequelize.transaction();
   let { type } = req.params;
+  let { browser, os, platform } = req.useragent;
   let { countryNum, phone, password, email, token, refcode } = req.body;
   let jwttoken;
 
@@ -212,7 +214,6 @@ router.post("/signup/:type", async (req, res) => {
         return;
       }
     } else {          // ACCOUNT DOES NOT EXIST
-
       db['users'].create({
         email: email,
         firstname: given_name,
@@ -245,19 +246,22 @@ router.post("/signup/:type", async (req, res) => {
     /////////////////////////////////////////////// EMAIL REGISTER /////////////////////////////////////////////// 
   } else if (type == 'email') {                    //EMAIL LOGIN
     if (!email || !password) { resperr(res, 'INVALID-DATA'); return; }
-    let respond = await db['users'].findOne({ where: { email: email } });
-    if (respond) { resperr(res, 'EMAIL-EXIST'); return; }
-    await db['users'].create({
-      email: email,
-      password
-    })
-      .then(async (new_acc) => {
+    try {
+      await db.sequelize.transaction(async (t) => {
+        let respond = await db['users'].findOne({ where: { email: email }, transaction: t });
+        if (respond) { resperr(res, 'EMAIL-EXIST'); return; }
+        let new_acc = await db['users'].create({
+          email: email,
+          password
+        }, {
+          transaction: t
+        })
         let refcodegen = await generateRefCode("" + new_acc.id)
-        console.log(refcodegen)
         await db['users'].update({
           referercode: String(refcodegen)
         }, {
-          where: { id: new_acc.id }
+          where: { id: new_acc.id },
+          transaction: t
         })
         await db['balances'].bulkCreate([{
           uid: new_acc.id,
@@ -265,11 +269,14 @@ router.post("/signup/:type", async (req, res) => {
         }, {
           uid: new_acc.id,
           typestr: 'LIVE'
-        }])
-        
-
-
+        }], {
+          transaction: t
+        })
       })
+    }
+    catch (err) {
+      respok(res, 'FAILED')
+    }
     //TOKEN GENERATE
     jwttoken = createJWT({ email: email, password })
 
@@ -311,47 +318,56 @@ router.post("/signup/:type", async (req, res) => {
     if (refcode) {
       let referer = await db['users'].findOne({ where: { referercode: refcode }, raw: true })
       if (referer) {
-        if (referer.isadmin == 1){
+        if (referer.isadmin == 1) {
           await db['referrals'].create({
             referer_uid: referer.id,
             referral_uid: jtoken.id,
-            
+
           })
-          .then(async _=>{
-            await db['users'].update({
-              isbranch: 1
-            },{
-              where:{
-                id: jtoken.id
-              }
+            .then(async _ => {
+              await db['users'].update({
+                isbranch: 1
+              }, {
+                where: {
+                  id: jtoken.id
+                }
+              })
             })
-          })
-        }else{
+        } else {
           await db['referrals'].create({
             referer_uid: referer.id,
             referral_uid: jtoken.id
           })
-      }
+        }
       } else {
         resperr(res, 'INVALID-CODE');
         return;
       }
     }
     await db['userwallets'].findOne({
-      where:{
+      where: {
         uid: jtoken.id
       }
-    }).then(async res =>{
-      if(!res){
-        let walletgen = await web3.eth.accounts.create(jtoken.id+"BINARY@##12");
-    await db['userwallets'].create({
-      uid: jtoken.id,
-      walletaddress: walletgen.address,
-      privatekey: walletgen.privateKey
-    })
+    }).then(async res => {
+      if (!res) {
+        let walletgen = await web3.eth.accounts.create(jtoken.id + "BINARY@##12");
+        await db['userwallets'].create({
+          uid: jtoken.id,
+          walletaddress: walletgen.address,
+          privatekey: walletgen.privateKey
+        })
       }
     })
-    
+    let ipaddr = requestIp.getClientIp(req).replace('::ffff:', '')
+    let ipinfo = lookup(ipaddr)
+    await db['loginhistories'].create({
+      uid: jtoken.id,
+      ipaddress: ipaddr,
+      deviceos: platform + " / " + os,
+      browser: browser,
+      country: ipinfo.country,
+      status: ipinfo.city
+    })
     _jtoken = await createJWT({ id: jtoken.id })
     respok(res, 'TOKEN_CREATED', null, { result: _jtoken });
     return;
@@ -424,14 +440,14 @@ router.post("/login/:type", async (req, res) => {
     if (!email || !password) { resperr(res, 'INVALID-DATA'); return; }
     let emailChk = await db['users'].findOne({ where: { email: email } })
     if (!emailChk) { resperr(res, 'EMAIL-DOESNT-EXIST'); return; }
-    if (emailChk.password != password){resperr(res, 'INVALID-PASSWORD'); return;}
+    if (emailChk.password != password) { resperr(res, 'INVALID-PASSWORD'); return; }
     jwttoken = createJWT({ email: email, password })
     /////////////////////////////////////////////// PHONE LOGIN /////////////////////////////////////////////// 
   } else if (type == 'phone') {
     if (!phone || !password || !countryNum) { resperr(res, 'INVALID-DATA'); return; }
-    let phoneChk = await db['users'].findOne({ where: { phone, countryNum}, raw: true });
+    let phoneChk = await db['users'].findOne({ where: { phone, countryNum }, raw: true });
     if (!phoneChk) { resperr(res, 'PHONE-NUMBER-DOESNT-EXIST'); return; }
-    if(phoneChk.password != password){resperr(res, 'INVALID-PASSWORD'); return;}
+    if (phoneChk.password != password) { resperr(res, 'INVALID-PASSWORD'); return; }
     jwttoken = createJWT({ phone, password })
   } else {
     resperr(res, 'INVALID-LOGIN-TYPE');
@@ -456,7 +472,6 @@ router.post("/login/:type", async (req, res) => {
       browser: browser,
       country: ipinfo.country,
       status: ipinfo.city
-
     })
 
     respok(res, 'TOKEN_CREATED', null, { result: jtoken, ref, isFirstSocial });
@@ -474,24 +489,24 @@ router.post("/login/:type", async (req, res) => {
   // respok(res, 'TOKEN_CREATED', null, {token: jwttoken})
 })
 
-router.post("/send/verification/:type", auth, async(req, res)=>{
-  let {type} = req.params;
-  let {id} = req.decoded;
-  let {phone, email, countryNum} = req.body;
-  const randNum = ""+Math.floor(100000 + Math.random() * 900000);
-  if (type == 0){ //PHONE
-    let a = await sendMessage(countryNum+phone, randNum);
+router.post("/send/verification/:type", auth, async (req, res) => {
+  let { type } = req.params;
+  let { id } = req.decoded;
+  let { phone, email, countryNum } = req.body;
+  const randNum = "" + Math.floor(100000 + Math.random() * 900000);
+  if (type == 0) { //PHONE
+    let a = await sendMessage(countryNum + phone, randNum);
     await db['verifycode'].create({
       uid: id,
       code: randNum
     })
-    .then(_=>{
-      respok(res, 'SENT')
-    })
-  }else if(type == 1){ //mail
+      .then(_ => {
+        respok(res, 'SENT')
+      })
+  } else if (type == 1) { //mail
 
   }
-  
+
 })
 
 router.get("/verify/:type/:code", async (req, res) => {
@@ -523,21 +538,21 @@ router.get("/balance", auth, async (req, res) => {
   })
 })
 
-router.get("/query/:tblname/:offset/:limit", auth, (req, res)=>{
+router.get("/query/:tblname/:offset/:limit", auth, (req, res) => {
 
-  let {startDate, endDate} = req.query;
-  let {tblname, offset, limit} = req.params;
-  let {key, val} = req.query;
-  let {id} = req.decoded;
-  let jfilter={}
-  if(key && val){
-    jfilter[key]=val
-    if(val=='DEPOSIT'){
-      jfilter[key]={[Op.or]:['DEPOSIT', 'LOCALEDEPOSIT']}
+  let { startDate, endDate } = req.query;
+  let { tblname, offset, limit } = req.params;
+  let { key, val } = req.query;
+  let { id } = req.decoded;
+  let jfilter = {}
+  if (key && val) {
+    jfilter[key] = val
+    if (val == 'DEPOSIT') {
+      jfilter[key] = { [Op.or]: ['DEPOSIT', 'LOCALEDEPOSIT'] }
     }
   }
-  if(startDate && endDate){
-    jfilter={
+  if (startDate && endDate) {
+    jfilter = {
       ...jfilter,
       createdat: {
         [Op.between]: [startDate, endDate],
@@ -546,32 +561,53 @@ router.get("/query/:tblname/:offset/:limit", auth, (req, res)=>{
   }
 
   db[tblname].findAndCountAll({
-    where:{
+    where: {
       uid: id,
       ...jfilter
     },
     offset: parseInt(+offset),
     limit: parseInt(+limit),
-    order:[["id", 'DESC']]
+    order: [["id", 'DESC']]
   })
-  .then(respdata=>{
-    respok(res, null, null, {respdata})
-  })
+    .then(respdata => {
+      respok(res, null, null, { respdata })
+    })
 })
 
-router.patch("/profile", auth, async (req, res)=>{
+router.patch("/profile", auth, async (req, res) => {
   let { firstName, lastName, email } = req.body;
-  let {id} = req.decoded;
+  let { id } = req.decoded;
   db['users'].update({
     firstname: firstName,
     lastname, lastName
-  },{
-    where:{
+  }, {
+    where: {
       id
     }
   })
-  .then(_=>{
-    respok(res, 'CHANGED')
+    .then(_ => {
+      respok(res, 'CHANGED')
+    })
+})
+
+router.get("/predeposit", auth, async(req, res)=>{
+  let { id } = req.decoded;
+  db['transactions'].findOne({
+    where:{
+      uid: id,
+      checked: 0
+    }
+  })
+  .then(async result=>{
+    if(result){
+    await result.update({checked: 1})
+    respok(res, null, null, {respdata:result});
+    return;
+    }
+    else{
+      respok(res, 'NOT-FOUND');
+      return;
+    }
   })
 })
 

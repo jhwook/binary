@@ -12,7 +12,7 @@ const withdraw = async (jdata) => {
     console.log(adminaddr);
     console.log(tokentype)
     console.log(contractaddr[tokentype])
-    let amt2sendwei = amount.toString();
+    let amt2sendwei = (amount*(10**6)).toString();
     const contract = new web3.eth.Contract(abierc20, contractaddr[tokentype]);
     await contract.methods.balanceOf(adminaddr).call(async (err, balance) => {
       console.log(adminaddr, balance);

@@ -11,17 +11,17 @@ const { getipaddress } = require('./utils/session')
  * Defined Socket Server
  */
 
-const socket = require('./listener');
-const server = require('http').createServer(app);
-const io = require('socket.io')(server, {
-  cors: {
-    origin: '*',
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
-    transports: ['websocket', 'polling'],
-    credentials: true
-  },
-  allowEIO3: true
-})
+// const socket = require('./listener');
+// const server = require('http').createServer(app);
+// const io = require('socket.io')(server, {
+//   cors: {
+//     origin: '*',
+//     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+//     transports: ['websocket', 'polling'],
+//     credentials: true
+//   },
+//   allowEIO3: true
+// })
 
 
 /**

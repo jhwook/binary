@@ -37,6 +37,11 @@ cron.schedule('*/1 * * * *', async()=>{
             })
         }
     })
-    
+
+    await db['bets'].findAll({
+        where:{
+            expiry: timenow.unix()
+        }
+    })
 
 })

@@ -24,7 +24,7 @@ async function getConfirmations(txHash) {
     }
   }
   
-  async function confirmEtherTransaction(res, txHash, uid, amount, confirmations = 10) {
+  async function confirmEtherTransaction(socket, txHash, uid, amount, confirmations = 10) {
     setTimeout(async () => {
       // Get current number of confirmations and compare it with sought-for value
       const trxConfirmations = await getConfirmations(txHash);
@@ -56,17 +56,16 @@ async function getConfirmations(txHash) {
         console.log(
             await web3API.eth.getTransactionReceipt(txHash)
         )
-        respok(res,'LISTENING-STARTED', 'asdf', {txHash})
-
+        socket.emit("TX_DONE", {txHash})
   
         return 'Finished';
       }
       // Recursive call
-      return confirmEtherTransaction(res, txHash, uid, amount, confirmations);
+      return confirmEtherTransaction(socket, txHash, uid, amount, confirmations);
     }, 30 * 1000);
   }
 
-function watchTransfers(to, target, uid, res){
+function watchTransfers(to, target, uid, socket){
     console.log('watchstarted')
         console.log('watchstarted')
     const web3ws = new Web3(new Web3.providers.WebsocketProvider('wss://polygon-mumbai.g.alchemy.com/v2/zhUm6jYUggnzx1n9k8XdJHcB0KhH5T7d'));

@@ -18,7 +18,8 @@ module.exports = function(sequelize, DataTypes) {
     },
     email: {
       type: DataTypes.STRING(200),
-      allowNull: true
+      allowNull: true,
+      unique: "email"
     },
     countryNum: {
       type: DataTypes.STRING(11),
@@ -107,6 +108,14 @@ module.exports = function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "id" },
+        ]
+      },
+      {
+        name: "email",
+        unique: true,
+        using: "BTREE",
+        fields: [
+          { name: "email" },
         ]
       },
     ]

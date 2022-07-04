@@ -1,11 +1,16 @@
 const jwt = require('jsonwebtoken');
+const asyncRedis = require("async-redis");
+const client = asyncRedis.createClient();
+
+client.on("error", function (err) {
+  console.log("Error " + err);
+});
 
 module.exports = (io) => {
     const fs = require('fs');
     const path = require('path');
     const listenersPath = path.resolve(__dirname);
     io
-    .of('/demo')
     .use((socket, next)=>{
         if (socket.handshake.query && socket.handshake.query.token){
             jwt.verify(socket.handshake.query.token, process.env.JWT_SECRET, function(err, decoded) {
@@ -19,8 +24,16 @@ module.exports = (io) => {
             next(new Error('Authentication error'));
           }
     })
-    .on('connection', (socket) => {
+    .on('connection', async (socket) => {
         console.log(socket.id)
+        const asyncBlock = async () => {
+          await client.set("string key", "string val");
+          const value = await client.get("string key");
+          console.log(value);
+          await client.flushall("string key");
+        };
+
+
        fs.readdir(listenersPath, (err, files) => {
          if (err) {
            process.exit(1);

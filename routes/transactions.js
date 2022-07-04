@@ -46,8 +46,8 @@ router.post("/listen/:type", auth, async(req, res)=>{
     let{type} = req.params;
     let {id, wallet} = req.decoded;
     if(!id){resperr(res, 'USER-NOT-FOUND'); return;}
-    watchTransfers(wallet, type, id);
-    respok(res,'LISTENING-STARTED')
+    let resp = await watchTransfers(wallet, type, id, res);
+    
     
 })
 
