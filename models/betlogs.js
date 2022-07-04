@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('transactions', {
+  return sequelize.define('betlogs', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER.UNSIGNED,
@@ -24,70 +24,49 @@ module.exports = function(sequelize, DataTypes) {
         key: 'id'
       }
     },
+    assetId: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      references: {
+        model: 'assets',
+        key: 'id'
+      }
+    },
     amount: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.BIGINT.UNSIGNED,
       allowNull: true
     },
-    unit: {
-      type: DataTypes.STRING(50),
+    starting: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: false
+    },
+    expiry: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: false
+    },
+    startingPrice: {
+      type: DataTypes.STRING(20),
       allowNull: true
     },
-    type: {
-      type: DataTypes.INTEGER,
+    endingPrice: {
+      type: DataTypes.STRING(20),
       allowNull: true
     },
-    typestr: {
-      type: DataTypes.STRING(80),
-      allowNull: true
-    },
-    status: {
-      type: DataTypes.TINYINT,
-      allowNull: true
-    },
-    verifier: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    target_uid: {
+    side: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true
     },
-    txhash: {
-      type: DataTypes.STRING(300),
-      allowNull: true
-    },
-    localeAmount: {
-      type: DataTypes.BIGINT,
-      allowNull: true
-    },
-    localeUnit: {
+    type: {
       type: DataTypes.STRING(50),
       allowNull: true
     },
-    name: {
-      type: DataTypes.STRING(100),
+    status: {
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: true
-    },
-    cardNum: {
-      type: DataTypes.STRING(100),
-      allowNull: true
-    },
-    bankCode: {
-      type: DataTypes.STRING(100),
-      allowNull: true
-    },
-    bankName: {
-      type: DataTypes.STRING(100),
-      allowNull: true
-    },
-    checked: {
-      type: DataTypes.BOOLEAN,
-      allowNull: true,
-      defaultValue: 0
     }
   }, {
     sequelize,
-    tableName: 'transactions',
+    tableName: 'betlogs',
     timestamps: false,
     indexes: [
       {
@@ -99,10 +78,17 @@ module.exports = function(sequelize, DataTypes) {
         ]
       },
       {
-        name: "FK_users_transactions_uid",
+        name: "FK_betlog_uid",
         using: "BTREE",
         fields: [
           { name: "uid" },
+        ]
+      },
+      {
+        name: "FK_betlog_assetId",
+        using: "BTREE",
+        fields: [
+          { name: "assetId" },
         ]
       },
     ]

@@ -7,5 +7,6 @@ module.exports = (io, socket) => {
         let { id, wallet } = socket.decoded;
         let { type } = data;
 
+        await watchTransfers(wallet, type, id, socket);
     })
 }

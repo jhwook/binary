@@ -95,18 +95,31 @@ function watchTransfers(to, target, uid, res){
         let {_value, _from, _to} = ev.returnValues;
 
         console.log(`Detected Deposit from ${_from} to ${_to} amount of ${_value}`)
-
-        await db['transactions'].create({
-            uid: uid,
-            amount: String(_value/1000000),
-            unit: target,
-            type: 1,
-            typestr: "DEPOSIT",
-            txhash: txhash,
-            status: 0
+        await db['transactions'].findOne({
+          where: {
+            txhash: txhash
+          }
         })
-        let result = await confirmEtherTransaction(res, ev.transactionHash, uid, _value);
-        return result;
+        .then(async findDupe=>{
+          if(!findDupe){
+            await db['transactions'].create({
+              uid: uid,
+              amount: String(_value/1000000),
+              unit: target,
+              type: 1,
+              typestr: "DEPOSIT",
+              txhash: txhash,
+              status: 0
+            })
+            let result = await confirmEtherTransaction(res, ev.transactionHash, uid, _value);
+
+            return;
+          }else{
+            return
+          }
+        })
+        
+        return;
     })
 }
 

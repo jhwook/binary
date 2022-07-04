@@ -2,8 +2,8 @@ var DataTypes = require("sequelize").DataTypes;
 var __sample_created_updated = require("./_sample_created_updated");
 var _assets = require("./assets");
 var _balances = require("./balances");
+var _betlogs = require("./betlogs");
 var _bets = require("./bets");
-var _bids = require("./bids");
 var _bookmarks = require("./bookmarks");
 var _country_code = require("./country_code");
 var _logfeepayer = require("./logfeepayer");
@@ -19,8 +19,8 @@ function initModels(sequelize) {
   var _sample_created_updated = __sample_created_updated(sequelize, DataTypes);
   var assets = _assets(sequelize, DataTypes);
   var balances = _balances(sequelize, DataTypes);
+  var betlogs = _betlogs(sequelize, DataTypes);
   var bets = _bets(sequelize, DataTypes);
-  var bids = _bids(sequelize, DataTypes);
   var bookmarks = _bookmarks(sequelize, DataTypes);
   var country_code = _country_code(sequelize, DataTypes);
   var logfeepayer = _logfeepayer(sequelize, DataTypes);
@@ -32,10 +32,14 @@ function initModels(sequelize) {
   var userwallets = _userwallets(sequelize, DataTypes);
   var verifycode = _verifycode(sequelize, DataTypes);
 
+  betlogs.belongsTo(assets, { as: "asset", foreignKey: "assetId"});
+  assets.hasMany(betlogs, { as: "betlogs", foreignKey: "assetId"});
   bookmarks.belongsTo(assets, { as: "asset", foreignKey: "assetsId"});
   assets.hasMany(bookmarks, { as: "bookmarks", foreignKey: "assetsId"});
   balances.belongsTo(users, { as: "uid_user", foreignKey: "uid"});
   users.hasMany(balances, { as: "balances", foreignKey: "uid"});
+  betlogs.belongsTo(users, { as: "uid_user", foreignKey: "uid"});
+  users.hasMany(betlogs, { as: "betlogs", foreignKey: "uid"});
   bookmarks.belongsTo(users, { as: "uid_user", foreignKey: "uid"});
   users.hasMany(bookmarks, { as: "bookmarks", foreignKey: "uid"});
   referrals.belongsTo(users, { as: "referer_u", foreignKey: "referer_uid"});
@@ -51,8 +55,8 @@ function initModels(sequelize) {
     _sample_created_updated,
     assets,
     balances,
+    betlogs,
     bets,
-    bids,
     bookmarks,
     country_code,
     logfeepayer,

@@ -29,11 +29,9 @@ cron.schedule('*/1 * * * *', async()=>{
             await axios.get(`https://yfapi.net/v7/finance/options/0700.HK?date=${timenow.unix()}`, {headers:{'X-API-KEY': 'azOHNJofho3LamfrqB4ef20gS6MSQyhx8iAHT34V'}})
             .then(({data})=>{
                 let price = data.optionChain.result[0].quote.regularMarketPrice;
-                console.log(price)
-                console.log(result)
                 result[0].update({
                     startingPrice: data.optionChain.result[0].quote.regularMarketPrice
-                })
+                });
             })
         }
     })
@@ -41,6 +39,14 @@ cron.schedule('*/1 * * * *', async()=>{
     await db['bets'].findAll({
         where:{
             expiry: timenow.unix()
+        }
+    })
+    .then(async expiryResult=>{
+        if (expiryResult.length>0){
+            if(expiryResult.length==1){
+                
+            }
+
         }
     })
 
