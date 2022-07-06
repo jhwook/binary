@@ -70,11 +70,6 @@ async function createJWT(jfilter) {
       }
     })
 
-
-
-
-
-  console.log(userinfo)
   if (!userinfo) { return false }
   let token = jwt.sign({
     type: 'JWT',
@@ -103,9 +98,6 @@ router.get("/", function (req, res, next) {
  */
 
 router.get("/auth", auth, async (req, res) => {
-  console.log("AUTH:::")
-  console.log(req.decoded)
-  console.log(req.headers.authorization)
   respok(res, 'AUTH', null, { result: req.decoded })
 })
 
@@ -161,7 +153,7 @@ router.patch("/edit/:type", auth, async (req, res) => {
   }
 })
 
-/**
+/*
  * Check if user referred or not
  */
 
@@ -179,7 +171,7 @@ router.get("/refchk", auth, async (req, res) => {
   }
 })
 
-/**
+/*
  * REGISTER ENDPOINT
  */
 
@@ -459,7 +451,6 @@ router.post("/login/:type", async (req, res) => {
   /////////////////////////////////////////////// GENERAL LOGIN ///////////////////////////////////////////////
   let jtoken = await jwttoken;
   if (jtoken) {
-    console.log(await jwttoken)
     let ref = await db['referrals'].findOne({ where: { referral_uid: jtoken.id } });
     if (ref) {
       ref = true
@@ -524,9 +515,6 @@ router.get("/verify/:type/:code", async (req, res) => {
 router.get("/balance", auth, async (req, res) => {
   let { type } = req.params;
   let { id } = req.decoded;
-  console.log("AUTH:::")
-  console.log(req.decoded)
-  console.log(req.headers.authorization)
   db['balances'].findAll({
     where: {
       uid: id,

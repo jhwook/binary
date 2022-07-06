@@ -29,7 +29,7 @@ router.post('/join/:type/:assetId/:amount/:dur/:side', auth, async (req, res)=>{
     let expiry = moment().add(Number(dur)+1, 'minutes').set('second', 0);
     let t = await db.sequelize.transaction();
     try {
-        await db['bets'].create({
+        let bets = await db['bets'].create({
             uid: id,
             assetId: assetId,
             amount: amount,
@@ -49,7 +49,7 @@ router.post('/join/:type/:assetId/:amount/:dur/:side', auth, async (req, res)=>{
 
         await t.commit();
 
-        respok(res, 'BIDDED', null, {expiry: expiry, starting: starting})
+        respok(res, 'BIDDED', null, {expiry: expiry, starting: starting, betId: bets.id})
 
         return;
     } catch (error){

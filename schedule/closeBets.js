@@ -49,7 +49,8 @@ cron.schedule('*/1 * * * *', async()=>{
             let status;
             result.map(v=>{
                 if (v.starting == timenow.unix()){
-                    db['bets'].update({startingPrice: price},{where:{id: v.id}})
+                    //await db['assets'].update({currentPrice: price}, {where:{id: i}})
+                    await db['bets'].update({startingPrice: price},{where:{id: v.id}})
                 } else {
                     if (v.startingPrice==price){
                         status = 2

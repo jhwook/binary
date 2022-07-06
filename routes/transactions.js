@@ -134,5 +134,15 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
         default:
             break;
     }
+});
+
+router.get("/branch/list", auth, async(req, res)=>{
+    let {id} = req.decoded;
+
+    db['transactions'].findAll({
+        where:{
+            target_uid: id
+        }
+    })
 })
   module.exports = router;
