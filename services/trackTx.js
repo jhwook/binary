@@ -104,18 +104,18 @@ function watchTransfers(to, target, uid, res){
           if(!findDupe){
             await db['transactions'].create({
               uid: uid,
-              amount: String(_value/1000000),
+              amount: _value,
               unit: target,
               type: 1,
               typestr: "DEPOSIT",
               txhash: txhash,
               status: 0
             })
-            let result = await confirmEtherTransaction(res, ev.transactionHash, uid, _value);
+            confirmEtherTransaction(res, ev.transactionHash, uid, _value);
 
             return;
           }else{
-            return
+            return;
           }
         })
         

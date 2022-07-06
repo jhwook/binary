@@ -53,6 +53,12 @@ db['users'].belongsTo(db['bookmarks'], {foreignKey:'id', targetKey:'uid'})
 db['bookmarks'].hasOne(db['assets'], {foreignKey:'id', sourceKey: 'assetsId'})
 db['assets'].belongsTo(db['bookmarks'], {foreignKey:'id', targetKey:'assetsId'})
 
+db['bets'].hasOne(db['assets'], {foreignKey: 'id', sourceKey: 'assetId'});
+db['assets'].hasOne(db['bets'], {foreignKey: 'id', targetKey: 'assetId'});
+
+db['betlogs'].hasOne(db['assets'], {foreignKey: 'id', sourceKey: 'assetId'});
+db['assets'].hasOne(db['betlogs'], {foreignKey: 'id', targetKey: 'assetId'});
+
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;

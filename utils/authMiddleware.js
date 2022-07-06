@@ -2,8 +2,12 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config()
 exports.auth = (req, res, next) => {
     try {
-        req.decoded = jwt.verify(`${req.headers.authorization}`, process.env.JWT_SECRET);
-        return next();
+        jwt.verify(`${req.headers.authorization}`, process.env.JWT_SECRET, (err, decoded)=>{
+            if(err){throw err}
+            req.decoded = decoded;
+            return next();
+        });
+        
     }
     catch (error) {
         if (error.name === 'TokenExpiredError') {

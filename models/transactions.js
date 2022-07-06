@@ -54,7 +54,8 @@ module.exports = function(sequelize, DataTypes) {
     },
     txhash: {
       type: DataTypes.STRING(300),
-      allowNull: true
+      allowNull: true,
+      unique: "txhash"
     },
     localeAmount: {
       type: DataTypes.BIGINT,
@@ -96,6 +97,14 @@ module.exports = function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "id" },
+        ]
+      },
+      {
+        name: "txhash",
+        unique: true,
+        using: "BTREE",
+        fields: [
+          { name: "txhash" },
         ]
       },
       {

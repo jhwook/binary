@@ -3,9 +3,8 @@ const {web3: web3API} = require( '../configs/configweb3');
 const {contractaddr} = require('../configs/addresses');
 const {abi : abierc20} =require( '../contracts/abi/ERC20');
 const db = require('../models')
-let { respok, resperr } = require("../utils/rest");
 
-async function getConfirmations(txHash) {
+async function getConfirmations(socket, txHash) {
     try {
       // Instantiate web3 with HttpProvider
       const web3 = new Web3(web3API);
@@ -20,6 +19,7 @@ async function getConfirmations(txHash) {
       // In this case we return 0 as number of confirmations
       return trx.blockNumber === null ? 0 : currentBlock - trx.blockNumber;
     } catch (error) {
+      socket.emit("transactions", false)
       console.log(error);
     }
   }
@@ -27,7 +27,7 @@ async function getConfirmations(txHash) {
   async function confirmEtherTransaction(socket, txHash, uid, amount, confirmations = 10) {
     setTimeout(async () => {
       // Get current number of confirmations and compare it with sought-for value
-      const trxConfirmations = await getConfirmations(txHash);
+      const trxConfirmations = await getConfirmations(socket, txHash);
       console.log(
         "Transaction with hash " +
           txHash +
@@ -50,13 +50,7 @@ async function getConfirmations(txHash) {
         console.log(
           "Transaction with hash " + txHash + " has been successfully confirmed"
         );
-        console.log(
-            await web3API.eth.getTransaction(txHash)
-        )
-        console.log(
-            await web3API.eth.getTransactionReceipt(txHash)
-        )
-        socket.emit("TX_DONE", {txHash})
+        socket.emit("transactions", {txHash})
   
         return 'Finished';
       }
@@ -94,18 +88,30 @@ function watchTransfers(to, target, uid, socket){
         let {_value, _from, _to} = ev.returnValues;
 
         console.log(`Detected Deposit from ${_from} to ${_to} amount of ${_value}`)
-
-        await db['transactions'].create({
-            uid: uid,
-            amount: String(_value/1000000),
-            unit: target,
-            type: 1,
-            typestr: "DEPOSIT",
-            txhash: txhash,
-            status: 0
+        await db['transactions'].findOne({
+          where: {
+            txhash: txhash
+          }
         })
-        let result = await confirmEtherTransaction(res, ev.transactionHash, uid, _value);
-        return result;
+        .then(async findDupe=>{
+          if(!findDupe){
+            await db['transactions'].create({
+              uid: uid,
+              amount: _value,
+              unit: target,
+              type: 1,
+              typestr: "DEPOSIT",
+              txhash: txhash,
+              status: 0
+            })
+            confirmEtherTransaction(socket, ev.transactionHash, uid, _value);
+
+            return;
+          }else{
+            return;
+          }
+        })
+        return;
     })
 }
 

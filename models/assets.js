@@ -56,6 +56,10 @@ module.exports = function(sequelize, DataTypes) {
     dispSymbol: {
       type: DataTypes.STRING(20),
       allowNull: true
+    },
+    APISymbol: {
+      type: DataTypes.STRING(20),
+      allowNull: true
     }
   }, {
     sequelize,

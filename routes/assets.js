@@ -5,6 +5,7 @@ const { softauth, auth } = require('../utils/authMiddleware');
 const db = require('../models')
 var crypto = require('crypto');
 const LOGGER = console.log;
+let { Op } = db.Sequelize
 
 var router = express.Router();
 
@@ -14,11 +15,21 @@ router.get("/", function (req, res, next) {
 
 router.get("/list", softauth, async (req, res)=>{
     let{id} = req.decoded;
-    let {group} = req.query;
-    console.log(id)
+    let {group, searchkey} = req.query;
+    let jfilter={}
+    
+    if (group){
+        jfilter['groupstr'] = group
+    }
+
+    if(searchkey){
+        jfilter={name: {[Op.like]: `%${searchkey}%`}}
+
+    }
+
     db['assets'].findAll({
         where:{
-            groupstr: group
+            ...jfilter
         },
         include:[{
             model: db['bookmarks'],
@@ -27,6 +38,7 @@ router.get("/list", softauth, async (req, res)=>{
         }]
     })
     .then(respdata=>{
+        console.log(jfilter)
         respok(res, null, null, {respdata})
     })
 })

@@ -52,10 +52,11 @@ router.post("/listen/:type", auth, async(req, res)=>{
 })
 
 router.patch("/live/:type/:amount", auth, async(req, res)=>{
-    let { type, amount} = req.params;
+    let { type, amount } = req.params;
     let {rxaddr, txhash, tokentype, senderaddr, name, card, bankCode, bankName} = req.body;
     let { id, isadmin, isbranch } = req.decoded;
     console.log("HELLO")
+    amount *= 1000000;
     if(!id){resperr(res, 'NOT-LOGGED-IN'); return;}
     let balance = await db['balances']
             .findOne({

@@ -53,7 +53,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     side: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.STRING(20),
       allowNull: true
     },
     type: {
@@ -62,6 +62,10 @@ module.exports = function(sequelize, DataTypes) {
     },
     status: {
       type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: true
+    },
+    betId: {
+      type: DataTypes.INTEGER,
       allowNull: true
     }
   }, {

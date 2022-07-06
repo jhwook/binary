@@ -8,6 +8,22 @@ const TX_POLL_OPTIONS = {
 	interval: TXREQSTATUS_POLL_INTERVAL
 	, blocksToWait: TXREQSTATUS_BLOCKCOUNT
 }
+const ASSETID_SYMBOL=[
+    "___SKIPPER___",
+    "BTC-USD",
+    "ETH-USD",
+    "XRP-USD",
+    "EURUSD=X",
+    "JPY=X",
+    "GBPUSD=X",
+    "CAD=X",
+    "CHF=X",
+    "9988.HK",
+    "601398.SS",
+    "601288.SS",
+    "0700.HK",
+    "600519.SS"
+]
 //closeTx({txhash, type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
 const closeTx = async (jargs) =>{
     let {txhash, type, tokentype, userid, senderaddr, amount} = jargs;
@@ -21,14 +37,15 @@ const closeTx = async (jargs) =>{
         console.log(status, type)
         switch (type){
             case "DEPOSIT":
-                await db['transactions']
-                .update({
-                    status: 1,
-                },{
-                    where:{
-                        txhash: txhash
-                    }
-                })
+                if(status){
+                    await db['transactions']
+                    .update({
+                        status: 1,
+                    },{
+                        where:{
+                            txhash: txhash
+                        }
+                    })
                 .then(_=>{
                     db['balances']
                     .increment(['total', 'avail'], {by: amount, where:{uid: userid, typestr: 'LIVE'}})
@@ -36,6 +53,16 @@ const closeTx = async (jargs) =>{
                         console.log(`DEPOSIT:: UID: ${userid} to ADMIN, amount of ${amount} ${tokentype}`)
                     })
                 })
+            } else {
+                await db['transactions']
+                .update({
+                    status: 2,
+                },{
+                    where:{
+                        txhash: txhash
+                    }
+                })
+            }
                 break;
             default:
                 break;

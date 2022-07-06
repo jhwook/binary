@@ -41,7 +41,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     side: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.STRING(20),
       allowNull: true
     },
     type: {

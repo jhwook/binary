@@ -103,6 +103,9 @@ router.get("/", function (req, res, next) {
  */
 
 router.get("/auth", auth, async (req, res) => {
+  console.log("AUTH:::")
+  console.log(req.decoded)
+  console.log(req.headers.authorization)
   respok(res, 'AUTH', null, { result: req.decoded })
 })
 
@@ -521,6 +524,9 @@ router.get("/verify/:type/:code", async (req, res) => {
 router.get("/balance", auth, async (req, res) => {
   let { type } = req.params;
   let { id } = req.decoded;
+  console.log("AUTH:::")
+  console.log(req.decoded)
+  console.log(req.headers.authorization)
   db['balances'].findAll({
     where: {
       uid: id,
