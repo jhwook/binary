@@ -6,9 +6,9 @@ let moment = require('moment')
 module.exports = (io, socket) => {
     socket.on("transactions", async(data, cb)=>{
         let { id, wallet } = socket.decoded;
-        let { type } = data;
+        let { type, txId } = data;
 
-        await watchTransfers(wallet, type, id, socket);
+        await watchTransfers(wallet, type, id, txId, socket);
     })
 
     socket.on("bet_dep", async(data, cb)=>{

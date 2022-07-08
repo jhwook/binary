@@ -60,6 +60,10 @@ module.exports = function(sequelize, DataTypes) {
     APISymbol: {
       type: DataTypes.STRING(20),
       allowNull: true
+    },
+    currentPrice: {
+      type: DataTypes.STRING(40),
+      allowNull: true
     }
   }, {
     sequelize,

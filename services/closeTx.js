@@ -64,6 +64,16 @@ const closeTx = async (jargs) =>{
                 })
             }
                 break;
+            case "TRANSFER":
+                if (status){
+                    let tx = await db['transactions'].findOne({where:{txhash}});
+                    tx
+                    .update({
+                        status: 1
+                    });
+                    await db['balances'].increment(['avail', 'total'], {by: amount, where:{uid: tx.uid, typestr: "LIVE"}})
+                }
+                break;
             default:
                 break;
         }

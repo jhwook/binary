@@ -59,7 +59,7 @@ async function getConfirmations(socket, txHash) {
     }, 30 * 1000);
   }
 
-function watchTransfers(to, target, uid, socket){
+function watchTransfers(to, target, uid, txId, socket){
     console.log('watchstarted')
         console.log('watchstarted')
     const web3ws = new Web3(new Web3.providers.WebsocketProvider('wss://polygon-mumbai.g.alchemy.com/v2/zhUm6jYUggnzx1n9k8XdJHcB0KhH5T7d'));
@@ -88,29 +88,47 @@ function watchTransfers(to, target, uid, socket){
         let {_value, _from, _to} = ev.returnValues;
 
         console.log(`Detected Deposit from ${_from} to ${_to} amount of ${_value}`)
-        await db['transactions'].findOne({
-          where: {
-            txhash: txhash
-          }
-        })
-        .then(async findDupe=>{
-          if(!findDupe){
-            await db['transactions'].create({
-              uid: uid,
-              amount: _value,
-              unit: target,
-              type: 1,
-              typestr: "DEPOSIT",
-              txhash: txhash,
-              status: 0
-            })
-            confirmEtherTransaction(socket, ev.transactionHash, uid, _value);
+        if(!txId){
+          await db['transactions'].findOne({
+            where: {
+              txhash: txhash
+            }
+          })
+          .then(async findDupe=>{
+            console.log(findDupe)
+            if(!findDupe){
+              await db['transactions'].create({
+                uid: uid,
+                amount: _value,
+                unit: target,
+                type: 1,
+                typestr: "DEPOSIT",
+                txhash: txhash,
+                status: 0
+              })
+              .catch(err=>{
+                console.log(err)
+              })
+              confirmEtherTransaction(socket, ev.transactionHash, uid, _value);
 
-            return;
-          }else{
-            return;
-          }
-        })
+              return;
+            }else{
+              return;
+            }
+          })
+          return;
+        } else {
+          await db['transactions'].update({
+            txhash: txhash,
+            verifier: uid
+          },{
+            where:{
+              id: txId
+            }
+          })
+          confirmEtherTransaction(socket, ev.transactionHash, uid, _value);
+          return;
+        }
         return;
     })
 }

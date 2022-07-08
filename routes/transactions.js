@@ -136,13 +136,57 @@ router.patch("/live/:type/:amount", auth, async(req, res)=>{
     }
 });
 
-router.get("/branch/list", auth, async(req, res)=>{
+router.get("/branch/list/:off/:lim", auth, async(req, res)=>{
+    let {off, lim, startDate, endDate} = req.params;
     let {id} = req.decoded;
-
+    console.log(id)
     db['transactions'].findAll({
         where:{
             target_uid: id
-        }
+        },
+        include:[{
+            //required: false,
+            model: db['users'],
+            attributes:['id', 'email', 'phone', 'level'],
+             include:[{
+            //     //required: false,
+                 model: db['transactions'],
+                 attributes:['uid', [db.Sequelize.fn('sum', db.Sequelize.col('transactions.localeAmount')), 'cumulAmount']]
+             }]
+        }],
+        offset: +off,
+        limit: +lim,
+        order: [['id', 'DESC']],
+        group: ['id']
     })
+    .then(respdata=>{
+        respok(res, null, null, {respdata})
+    })
+})
+
+/*
+
+
+
+*/
+router.patch("/branch/transfer", auth, async(req, res)=>{
+    let { id, isadmin } = req.decoded;
+    let { txhash, tokentype, txId, amount } = req.body;
+    /*
+    txId: transaction의 id값. txhash를 받으면 저장한다. 검증 완료되면 status 를 1로 변경한다.
+    */
+   if(!txId || !amount || !tokentype){resperr(res, 'INVALID-DATA'); return;}
+    if(isadmin == 1){
+        if(txhash){
+            await db['transactions'].update({txhash, verifier: id}, {where:{id: txId}})
+            respok(res, 'SUBMITTED');
+            closeTx({txhash, type:"TRANSFER", tokentype: tokentype, txId, amount})
+        } else {
+
+        }
+    } else {
+        resperr(res, 'NOT-PRIVILEGED')
+    }
+    
 })
   module.exports = router;
