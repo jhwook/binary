@@ -1,47 +1,52 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('betlogs', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
     createdat: {
       type: DataTypes.DATE,
       allowNull: true,
-      defaultValue: Sequelize.Sequelize.fn('current_timestamp')
+      defaultValue: sequelize.fn('current_timestamp')
     },
     updatedat: {
       type: DataTypes.DATE,
       allowNull: true
     },
     uid: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       references: {
-        model: 'users',
+        model: {
+          tableName: 'users',
+        },
         key: 'id'
       }
     },
     assetId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       references: {
-        model: 'assets',
+        model: {
+          tableName: 'assets',
+        },
         key: 'id'
       }
     },
     amount: {
-      type: DataTypes.BIGINT.UNSIGNED,
+      type: DataTypes.BIGINT,
       allowNull: true
     },
     starting: {
-      type: DataTypes.BIGINT.UNSIGNED,
+      type: DataTypes.BIGINT,
       allowNull: false
     },
     expiry: {
-      type: DataTypes.BIGINT.UNSIGNED,
+      type: DataTypes.BIGINT,
       allowNull: false
     },
     startingPrice: {
@@ -61,40 +66,15 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     status: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: true
     },
     betId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER(11),
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'betlogs',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-      {
-        name: "FK_betlog_uid",
-        using: "BTREE",
-        fields: [
-          { name: "uid" },
-        ]
-      },
-      {
-        name: "FK_betlog_assetId",
-        using: "BTREE",
-        fields: [
-          { name: "assetId" },
-        ]
-      },
-    ]
+    tableName: 'betlogs'
   });
 };

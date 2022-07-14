@@ -1,16 +1,17 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('users', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
     createdat: {
       type: DataTypes.DATE,
       allowNull: true,
-      defaultValue: Sequelize.Sequelize.fn('current_timestamp')
+      defaultValue: sequelize.fn('current_timestamp')
     },
     updatedat: {
       type: DataTypes.DATE,
@@ -19,7 +20,7 @@ module.exports = function(sequelize, DataTypes) {
     email: {
       type: DataTypes.STRING(200),
       allowNull: true,
-      unique: "email"
+      unique: true
     },
     countryNum: {
       type: DataTypes.STRING(11),
@@ -28,7 +29,7 @@ module.exports = function(sequelize, DataTypes) {
     phone: {
       type: DataTypes.STRING(100),
       allowNull: true,
-      unique: "phone"
+      unique: true
     },
     firstname: {
       type: DataTypes.STRING(100),
@@ -39,7 +40,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     oauth_type: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER(11),
       allowNull: true
     },
     oauth_id: {
@@ -52,36 +53,36 @@ module.exports = function(sequelize, DataTypes) {
       defaultValue: "MD5(3)"
     },
     uuid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER(11),
       allowNull: true
     },
     level: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER(11),
       allowNull: true,
       defaultValue: 0
     },
     isadmin: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(3).UNSIGNED,
       allowNull: true,
       defaultValue: 0
     },
     isbranch: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER(1),
       allowNull: true,
       defaultValue: 0
     },
     mailVerified: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER(1),
       allowNull: false,
       defaultValue: 0
     },
     phoneVerified: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER(1),
       allowNull: false,
       defaultValue: 0
     },
     active: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER(1),
       allowNull: true,
       defaultValue: 1
     },
@@ -92,45 +93,14 @@ module.exports = function(sequelize, DataTypes) {
     profileimage: {
       type: DataTypes.STRING(300),
       allowNull: true
+    },
+    typestr: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+      defaultValue: "MAIN"
     }
   }, {
     sequelize,
-    tableName: 'users',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-      {
-        name: "email",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "email" },
-        ]
-      },
-      {
-        name: "phone",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "phone" },
-        ]
-      },
-      {
-        name: "oauth",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "oauth_type" },
-          { name: "oauth_id" },
-        ]
-      },
-    ]
+    tableName: 'users'
   });
 };

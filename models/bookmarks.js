@@ -1,39 +1,44 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('bookmarks', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
     createdat: {
       type: DataTypes.DATE,
       allowNull: true,
-      defaultValue: Sequelize.Sequelize.fn('current_timestamp')
+      defaultValue: sequelize.fn('current_timestamp')
     },
     updatedat: {
       type: DataTypes.DATE,
       allowNull: true
     },
     uid: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: true,
       references: {
-        model: 'users',
+        model: {
+          tableName: 'users',
+        },
         key: 'id'
       }
     },
     assetsId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: true,
       references: {
-        model: 'assets',
+        model: {
+          tableName: 'assets',
+        },
         key: 'id'
       }
     },
     active: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER(1),
       allowNull: true
     },
     typestr: {
@@ -42,31 +47,6 @@ module.exports = function(sequelize, DataTypes) {
     }
   }, {
     sequelize,
-    tableName: 'bookmarks',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-      {
-        name: "FK_assets_bookmark",
-        using: "BTREE",
-        fields: [
-          { name: "assetsId" },
-        ]
-      },
-      {
-        name: "FK_users_bookmark",
-        using: "BTREE",
-        fields: [
-          { name: "uid" },
-        ]
-      },
-    ]
+    tableName: 'bookmarks'
   });
 };

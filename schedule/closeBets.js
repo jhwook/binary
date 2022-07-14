@@ -1,101 +1,101 @@
-var express = require("express");
+var express = require('express');
 const jwt = require('jsonwebtoken');
 const { auth } = require('../utils/authMiddleware');
-const db = require('../models')
+const db = require('../models');
 var moment = require('moment');
 const LOGGER = console.log;
-const cron = require("node-cron");
-const axios = require("axios");
+const cron = require('node-cron');
+const axios = require('axios');
 let { Op } = db.Sequelize;
-const ASSETID_SYMBOL=[
-    "___SKIPPER___",
-    "BTC-USD",
-    "ETH-USD",
-    "XRP-USD",
-    "EURUSD=X",
-    "JPY=X",
-    "GBPUSD=X",
-    "CAD=X",
-    "CHF=X",
-    "9988.HK",
-    "601398.SS",
-    "601288.SS",
-    "0700.HK",
-    "600519.SS"
-]
-cron.schedule('*/1 * * * *', async()=>{
-    console.log(
-        '@Round Checkings',
-        moment().format('HH:mm:ss'),
-        '@binopt'
-    );
-    const timenow = moment().startOf('minute');
-    console.log(timenow.unix())
-    ASSETID_SYMBOL.map(async (v, i)=>{
-        if(i==0){return;}
-        let exists = await db['bets'].findAll({
-            where:{
-                assetId: i, 
-                [Op.or]:[
-                    {starting: timenow.unix()},
-                    {expiry: timenow.unix()}
-                ]
-            },
-            raw: true
-        }).then(async result=>{
-            if (!result)return;
-            //let {data} = await axios.get(`https://yfapi.net/v7/finance/options/${v}?date=${timenow.unix()}`, {headers:{'X-API-KEY': 'r9e2WqrJWDbMMeoQQMbd8bp09FGkLFXaMKDZRR3f'}})
-            let price = Math.random();//data.optionChain.result[0].quote.regularMarketPrice;
-            let status;
-            result.map(v=>{
-                if (v.starting == timenow.unix()){
-                    //await db['assets'].update({currentPrice: price}, {where:{id: i}})
-                    await db['bets'].update({startingPrice: price},{where:{id: v.id}})
-                } else {
-                    if (v.startingPrice==price){
-                        status = 2
-                    }else if(v.startingPrice>price){ //가격이 떨어짐
-                        if(v.side.toUpperCase() == "HIGH"){
-                            status = 0
-                        }else{
-                            status = 1
-                        }
-                    }else if(v.startingPrice<price){
-                        if(v.side.toUpperCase() == "HIGH"){
-                            status = 1;
-                        }else{
-                            status = 0
-                        }
-                    }else{
-                        status=3
-                    }
-                    db['betlogs'].create({
-                        uid: v.uid,
-                        assetId: v.assetId,
-                        amount: v.amount,
-                        starting: v.starting,
-                        expiry: v.expiry,
-                        startingPrice: v.startingPrice,
-                        side: v.side,
-                        type: v.type,
-                        endingPrice: price,
-                        status: status
-                    })
-                    .then(_=>{
-                        db['bets'].destroy({where:{id: v.id}})
-                    })
-                }
-            })
-        })
-        if(exists){
-            await settlebets(i, timenow.unix());
-        }else{
-            //console.log(exists)
-        }
-
-    })
-
-})
+const ASSETID_SYMBOL = [
+  '___SKIPPER___',
+  'BTC-USD',
+  'ETH-USD',
+  'XRP-USD',
+  'EURUSD=X',
+  'JPY=X',
+  'GBPUSD=X',
+  'CAD=X',
+  'CHF=X',
+  '9988.HK',
+  '601398.SS',
+  '601288.SS',
+  '0700.HK',
+  '600519.SS',
+];
+cron.schedule('*/1 * * * *', async () => {
+  console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
+  const timenow = moment().startOf('minute');
+  console.log(timenow.unix());
+  ASSETID_SYMBOL.map(async (v, i) => {
+    if (i == 0) {
+      return;
+    }
+    let exists = await db['bets']
+      .findAll({
+        where: {
+          assetId: i,
+          [Op.or]: [{ starting: timenow.unix() }, { expiry: timenow.unix() }],
+        },
+        raw: true,
+      })
+      .then(async (result) => {
+        if (!result) return;
+        //let {data} = await axios.get(`https://yfapi.net/v7/finance/options/${v}?date=${timenow.unix()}`, {headers:{'X-API-KEY': 'r9e2WqrJWDbMMeoQQMbd8bp09FGkLFXaMKDZRR3f'}})
+        let price = Math.random(); //data.optionChain.result[0].quote.regularMarketPrice;
+        let status;
+        result.map(async (v) => {
+          if (v.starting == timenow.unix()) {
+            //await db['assets'].update({currentPrice: price}, {where:{id: i}})
+            await db['bets'].update(
+              { startingPrice: price },
+              { where: { id: v.id } }
+            );
+          } else {
+            if (v.startingPrice == price) {
+              status = 2;
+            } else if (v.startingPrice > price) {
+              //가격이 떨어짐
+              if (v.side.toUpperCase() == 'HIGH') {
+                status = 0;
+              } else {
+                status = 1;
+              }
+            } else if (v.startingPrice < price) {
+              if (v.side.toUpperCase() == 'HIGH') {
+                status = 1;
+              } else {
+                status = 0;
+              }
+            } else {
+              status = 3;
+            }
+            db['betlogs']
+              .create({
+                uid: v.uid,
+                assetId: v.assetId,
+                amount: v.amount,
+                starting: v.starting,
+                expiry: v.expiry,
+                startingPrice: v.startingPrice,
+                side: v.side,
+                type: v.type,
+                endingPrice: price,
+                status: status,
+              })
+              .then((_) => {
+                db['bets'].destroy({ where: { id: v.id } });
+              });
+          }
+        });
+      });
+    if (exists) {
+      await settlebets(i, timenow.unix());
+    } else {
+      //console.log(exists)
+    }
+  });
+});
 /*
     Status
     0-> 짐
@@ -105,109 +105,285 @@ cron.schedule('*/1 * * * *', async()=>{
 */
 
 const settlebets = async (assetId, expiry) => {
-    const t = db.sequelize.transaction();
-    try {
-    let {winnerTotalAmount} = await db['betlogs'].findAll({
-        where:{
-            assetId,
-            expiry,
-            status: 1
+  const t = db.sequelize.transaction();
+  try {
+    let [{ winnerTotalAmount }] = await db['betlogs'].findAll(
+      {
+        where: {
+          assetId,
+          expiry,
+          status: 1,
         },
         attributes: [
-            'id',
-            [db.Sequelize.fn('sum', db.Sequelize.col('amount')), 'winnerTotalAmount'],
+          'id',
+          [
+            db.Sequelize.fn('sum', db.Sequelize.col('amount')),
+            'winnerTotalAmount',
           ],
-          raw: true
-    },{
-        transaction: t
-    });
+        ],
+        raw: true,
+      },
+      {
+        transaction: t,
+      }
+    );
 
-    let {loserTotalAmount} = await db['betlogs'].findAll({
-        where:{
-            assetId,
-            expiry,
-            status: 0
+    let [{ loserTotalAmount }] = await db['betlogs'].findAll(
+      {
+        where: {
+          assetId,
+          expiry,
+          status: 0,
         },
         attributes: [
-            'id',
-            [db.Sequelize.fn('sum', db.Sequelize.col('amount')), 'loserTotalAmount'],
+          'id',
+          [
+            db.Sequelize.fn('sum', db.Sequelize.col('amount')),
+            'loserTotalAmount',
           ],
-          raw: true
-    },{
-        transaction: t
-    });
+        ],
+        raw: true,
+      },
+      {
+        transaction: t,
+      }
+    );
 
-    await db['betlogs'].findAll({
-        where:{
+    await db['betlogs']
+      .findAll(
+        {
+          where: {
             assetId,
             expiry,
-            status: 2
+            status: 2,
+          },
+          raw: true,
         },
-        raw: true
-    },{
-        transaction: t
-    })
-    .then(async drawusers=>{
-        if (drawusers.length <1){return;}
-        drawusers.map(async v=>{
-            console.log(v)
-            await db['balances'].increment('locked',{by: -1*v.amount, where:{uid: v.uid, typestr: v.type}},{
-                transaction: t
-            });
-            await db['balances'].increment(['avail', 'total'],{by: v.amount, where:{uid: v.uid, typestr: v.type}},{
-                transaction: t
-            });
-        })
-    })
-    
-    await db['betlogs'].findAll({
-        where:{
-            assetId,
-            expiry,
-            status: 0
-        },
-        raw: true
-    },{
-        transaction: t
-    }).then(async losers=>{
-        if (losers.length <1){return;}
-        losers.map(async v=>{
-            await db['balances'].increment(['avail', 'total', 'locked'],{by: -1*v.amount, where:{uid: v.uid, typestr: v.type}},{
-                transaction: t
-            });
-        })
-    })
+        {
+          transaction: t,
+        }
+      )
+      .then(async (drawusers) => {
+        if (drawusers.length < 1) {
+          return;
+        }
+        drawusers.map(async (v) => {
+          console.log(v);
+          await db['balances'].increment(
+            'locked',
+            { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } },
+            {
+              transaction: t,
+            }
+          );
+          await db['balances'].increment(
+            'avail',
+            { by: v.amount, where: { uid: v.uid, typestr: v.type } },
+            {
+              transaction: t,
+            }
+          );
+        });
+      });
 
-    await db['betlogs'].findAll({
-        where:{
+    await db['betlogs']
+      .findAll(
+        {
+          where: {
             assetId,
             expiry,
-            status: 1
+            status: 0,
+          },
+          raw: true,
         },
-        raw: true
-    },{
-        transaction: t
-    }).then(async winners=>{
-        if (winners.length <1){return;}
-        winners.map(async v=>{
-            let earned = Math.ceil(loserTotalAmount * v.amount / winnerTotalAmount) || 0;
-            let total = Number(earned) + Number(v.amount)
-            await db['balances'].increment('locked',{by: -1*v.amount, where:{uid: v.uid, typestr: v.type}},{
-                transaction: t
+        {
+          transaction: t,
+        }
+      )
+      .then(async (losers) => {
+        if (losers.length < 1) {
+          return;
+        }
+        losers.map(async (v) => {
+          await db['balances'].increment(
+            ['avail', 'total', 'locked'],
+            { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } },
+            {
+              transaction: t,
+            }
+          );
+        });
+      });
+
+    await db['betlogs']
+      .findAll(
+        {
+          where: {
+            assetId,
+            expiry,
+            status: 1,
+          },
+          raw: true,
+        },
+        {
+          transaction: t,
+        }
+      )
+      .then(async (winners) => {
+        if (winners.length < 1) {
+          return;
+        }
+
+        let FEE_TO_BRANCH = await db['feesettings']
+          .findOne({
+            where: { key_: FEE_TO_BRANCH },
+          })
+          .then((resp) => {
+            let { value_ } = resp.dataValues;
+            return value_;
+          });
+        let FEE_TO_ADMIN = await db['feesettings']
+          .findOne({
+            where: { key_: FEE_TO_ADMIN },
+          })
+          .then((resp) => {
+            let { value_ } = resp.dataValues;
+            return value_;
+          });
+
+        let FEE_SETTING = {
+          0: 'BRONZE',
+          1: 'SILVER',
+          2: 'GOLD',
+          3: 'DIAMOND',
+        };
+
+        winners.map(async (v) => {
+          let { uid } = v;
+          let earned =
+            Math.ceil((loserTotalAmount * v.amount) / winnerTotalAmount) || 0;
+
+          let winner_referer_uid = await db['referrals']
+            .findOne({ where: { referral_uid: uid } })
+            .then((resp) => {
+              let { referer_uid } = resp.dataValues;
+              return referer_uid;
             });
-            await db['balances'].increment('avail',{by: total, where:{uid: v.uid, typestr: v.type}},{
-                transaction: t
+          let referer_level = await db['users']
+            .findOne({ where: { id: winner_referer_uid } })
+            .then((resp) => {
+              let { level } = resp.dataValues;
+              return level;
             });
-            await db['balances'].increment('total',{by: +earned, where:{uid: v.uid, typestr: v.type}},{
-                transaction: t
+          let referer_fee_type = `FEE_TO_${FEE_SETTING[referer_level]}`;
+          let FEE_TO_REFERER = await db['feesettings']
+            .findOne({
+              where: { key_: referer_fee_type },
+            })
+            .then((resp) => {
+              let { value_ } = resp.dataValues;
+              return value_;
             });
-        })
-        
-    })
+          let fee_to_admin = (earned * FEE_TO_ADMIN) / 10000;
+          let fee_to_branch = (earned * FEE_TO_BRANCH) / 10000;
+          let fee_to_referer = (earned * FEE_TO_REFERER) / 10000;
+
+          let earned_after_fee = earned - fee_to_admin - fee_to_branch;
+
+          if (winner_referer_uid) {
+            earned_after_fee =
+              earned - fee_to_admin - fee_to_branch - fee_to_referer;
+            await db['logfees'].create(
+              {
+                payer_uid: uid,
+                recipient_uid: winner_referer_uid,
+                feeamount: fee_to_referer,
+                typestr: FEE_TO_REFERER,
+              },
+              {
+                transaction: t,
+              }
+            );
+            await db['balances'].increment(
+              'avail',
+              {
+                by: fee_to_referer,
+                where: { uid: winner_referer_uid, typestr: v.type },
+              },
+              {
+                transaction: t,
+              }
+            );
+          }
+
+          let total = Number(earned_after_fee) + Number(v.amount);
+
+          const admin = await db['users'].findOne({ where: { isadmin: 1 } });
+
+          const branch = await db['users'].findOne({ where: { isbranch: 1 } });
+          // Fee to admin and update admin's balance
+          await db['logfees'].create({
+            payer_uid: uid,
+            recipient_uid: admin.id,
+            feeamount: fee_to_admin,
+            typestr: FEE_TO_ADMIN,
+          });
+          await db['balances'].increment(
+            'avail',
+            {
+              by: fee_to_admin,
+              where: { uid: admin.id, typestr: v.type },
+            },
+            {
+              transaction: t,
+            }
+          );
+
+          // Fee to branch and update branch's balance
+          await db['logfees'].create({
+            payer_uid: uid,
+            recipient_uid: branch.id,
+            feeamount: fee_to_branch,
+            typestr: FEE_TO_BRANCH,
+          });
+          await db['balances'].increment(
+            'avail',
+            {
+              by: fee_to_branch,
+              where: { uid: branch.id, typestr: v.type },
+            },
+            {
+              transaction: t,
+            }
+          );
+
+          // update winner's balance
+          await db['balances'].increment(
+            'locked',
+            { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } },
+            {
+              transaction: t,
+            }
+          );
+          await db['balances'].increment(
+            'avail',
+            { by: total, where: { uid: v.uid, typestr: v.type } },
+            {
+              transaction: t,
+            }
+          );
+          await db['balances'].increment(
+            'total',
+            { by: +earned_after_fee, where: { uid: v.uid, typestr: v.type } },
+            {
+              transaction: t,
+            }
+          );
+        });
+      });
     await t.commit();
-} catch (err) {
+  } catch (err) {
     await t.rollback();
-    console.log(err)
-}
-
-}
+    console.log(err);
+  }
+};
