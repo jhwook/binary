@@ -7,6 +7,7 @@ const LOGGER = console.log;
 const cron = require('node-cron');
 const axios = require('axios');
 let { Op } = db.Sequelize;
+let { I_LEVEL } = require('../configs/userlevel');
 const ASSETID_SYMBOL = [
   '___SKIPPER___',
   'BTC-USD',
@@ -23,7 +24,30 @@ const ASSETID_SYMBOL = [
   '0700.HK',
   '600519.SS',
 ];
-cron.schedule('*/1 * * * *', async () => {
+const ASSETID_API_SYMBOL = [
+  '__SKIPPER__',
+  'BTCUSDT',
+  'ETHUSDT',
+  'XRPUSDT',
+  'EUR/USD',
+  'USD/JPY',
+  'GBP/USD',
+  'USD/CAD',
+  'USD/CHF',
+];
+const ASSETID_MARKET = [
+  '__SKIPPER__',
+  'BINANCE',
+  'BINANCE',
+  'BINANCE',
+  'FXCM',
+  'FXCM',
+  'FXCM',
+  'FXCM',
+  'FXCM',
+  'FXCM',
+];
+cron.schedule('10 * * * * *', async () => {
   console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
   const timenow = moment().startOf('minute');
   console.log(timenow.unix());
@@ -36,13 +60,29 @@ cron.schedule('*/1 * * * *', async () => {
         where: {
           assetId: i,
           [Op.or]: [{ starting: timenow.unix() }, { expiry: timenow.unix() }],
+          // expiry: timenow.unix(),
         },
         raw: true,
       })
       .then(async (result) => {
         if (!result) return;
-        //let {data} = await axios.get(`https://yfapi.net/v7/finance/options/${v}?date=${timenow.unix()}`, {headers:{'X-API-KEY': 'r9e2WqrJWDbMMeoQQMbd8bp09FGkLFXaMKDZRR3f'}})
-        let price = Math.random(); //data.optionChain.result[0].quote.regularMarketPrice;
+        let { data } = await axios.get(
+          `https://finnhub.io/api/v1/crypto/candle?symbol=${
+            ASSETID_MARKET[i]
+          }:${
+            ASSETID_API_SYMBOL[i]
+          }&resolution=1&from=${timenow.unix()}&to=${timenow.unix()}&token=c9se572ad3i4aps1soq0`
+        );
+        let price;
+        if (ASSETID_API_SYMBOL[i]) {
+          price = data.c[0];
+          console.log(`${ASSETID_API_SYMBOL[i]}`, price);
+        } else if (!ASSETID_API_SYMBOL[i]) {
+          price = Math.random().toFixed(10);
+        }
+
+        //let {data} = await axios.get(`https://yfapi.net/v7/finance/opti(ons/${v}?date=${timenow.unix()}`, {headers:{'X-API-KEY': 'r9e2WqrJWDbMMeoQQMbd8bp09FGkLFXaMKDZRR3f'}})
+        //data.optionChain.result[0].quote.regularMarketPrice;
         let status;
         result.map(async (v) => {
           if (v.starting == timenow.unix()) {
@@ -168,7 +208,7 @@ const settlebets = async (assetId, expiry) => {
           return;
         }
         drawusers.map(async (v) => {
-          console.log(v);
+          // console.log(v);
           await db['balances'].increment(
             'locked',
             { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } },
@@ -251,13 +291,6 @@ const settlebets = async (assetId, expiry) => {
             return value_;
           });
 
-        let FEE_SETTING = {
-          0: 'BRONZE',
-          1: 'SILVER',
-          2: 'GOLD',
-          3: 'DIAMOND',
-        };
-
         winners.map(async (v) => {
           let { uid } = v;
           let earned =
@@ -275,7 +308,7 @@ const settlebets = async (assetId, expiry) => {
               let { level } = resp.dataValues;
               return level;
             });
-          let referer_fee_type = `FEE_TO_${FEE_SETTING[referer_level]}`;
+          let referer_fee_type = `FEE_TO_${I_LEVEL[referer_level]}`;
           let FEE_TO_REFERER = await db['feesettings']
             .findOne({
               where: { key_: referer_fee_type },
@@ -299,6 +332,7 @@ const settlebets = async (assetId, expiry) => {
                 recipient_uid: winner_referer_uid,
                 feeamount: fee_to_referer,
                 typestr: FEE_TO_REFERER,
+                betamount: v.amount,
               },
               {
                 transaction: t,

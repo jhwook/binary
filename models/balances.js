@@ -10,7 +10,7 @@ module.exports = function(sequelize, DataTypes) {
     },
     uid: {
       type: DataTypes.INTEGER(11).UNSIGNED,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: {
           tableName: 'users',
@@ -36,6 +36,20 @@ module.exports = function(sequelize, DataTypes) {
     typestr: {
       type: DataTypes.STRING(20),
       allowNull: true
+    },
+    isMember: {
+      type: DataTypes.INTEGER(4),
+      allowNull: true
+    },
+    uuid: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      references: {
+        model: {
+          tableName: 'demoUsers',
+        },
+        key: 'uuid'
+      }
     }
   }, {
     sequelize,

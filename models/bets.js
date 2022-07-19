@@ -19,7 +19,7 @@ module.exports = function(sequelize, DataTypes) {
     },
     uid: {
       type: DataTypes.INTEGER(11).UNSIGNED,
-      allowNull: false
+      allowNull: true
     },
     assetId: {
       type: DataTypes.INTEGER(11).UNSIGNED,
@@ -48,6 +48,16 @@ module.exports = function(sequelize, DataTypes) {
     type: {
       type: DataTypes.STRING(50),
       allowNull: true
+    },
+    uuid: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      references: {
+        model: {
+          tableName: 'demoUsers',
+        },
+        key: 'uuid'
+      }
     }
   }, {
     sequelize,

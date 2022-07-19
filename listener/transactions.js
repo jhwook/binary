@@ -85,7 +85,7 @@ module.exports = (io, socket) => {
         });
         let winnerTotalAmount = winnerTotal[0].winnerTotal;
         let loserTotalAmount = loserTotal[0].loserTotal;
-        console.log(winnerTotalAmount, loserTotalAmount);
+        // console.log(winnerTotalAmount, loserTotalAmount);
         let diffRate = 0;
 
         if (!winnerTotalAmount || !loserTotalAmount) {
@@ -96,7 +96,7 @@ module.exports = (io, socket) => {
         return { ...v, currentPrice: currentPrice, diffRate: diffRate || 0 };
       })
     );
-    console.log(list);
+    // console.log(list);
     cb(list);
   });
 };

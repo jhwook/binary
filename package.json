@@ -35,11 +35,13 @@
     "morgan": "^1.10.0",
     "mysql2": "^2.3.3",
     "node-cron": "^3.0.1",
+    "poisson-process": "^1.0.1",
     "request-ip": "^2.2.0",
     "sequelize": "^6.21.0",
     "sequelize-auto": "^0.8.8",
     "socket.io": "^4.5.1",
     "twilio": "^3.77.3",
+    "uuid": "^8.3.2",
     "web3": "^1.7.4"
   }
 }

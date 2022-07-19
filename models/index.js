@@ -37,7 +37,10 @@ fs.readdirSync(__dirname)
     );
   })
   .forEach((file) => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes)
+    const model = require(path.join(__dirname, file))(
+      sequelize,
+      Sequelize.DataTypes
+    );
     db[model.name] = model;
   });
 
@@ -47,24 +50,38 @@ Object.keys(db).forEach((modelName) => {
   }
 });
 
-db['bookmarks'].hasMany(db['users'], {foreignKey:'id', sourceKey: 'uid'})
-db['users'].belongsTo(db['bookmarks'], {foreignKey:'id', targetKey:'uid'})
+db['bookmarks'].hasMany(db['users'], { foreignKey: 'id', sourceKey: 'uid' });
+db['users'].belongsTo(db['bookmarks'], { foreignKey: 'id', targetKey: 'uid' });
 
-db['bookmarks'].hasOne(db['assets'], {foreignKey:'id', sourceKey: 'assetsId'})
-db['assets'].belongsTo(db['bookmarks'], {foreignKey:'id', targetKey:'assetsId'})
+db['bookmarks'].hasOne(db['assets'], {
+  foreignKey: 'id',
+  sourceKey: 'assetsId',
+});
+db['assets'].belongsTo(db['bookmarks'], {
+  foreignKey: 'id',
+  targetKey: 'assetsId',
+});
 
-db['bets'].hasOne(db['assets'], {foreignKey: 'id', sourceKey: 'assetId'});
-db['assets'].belongsTo(db['bets'], {foreignKey: 'id', targetKey: 'assetId'});
+db['bets'].hasOne(db['assets'], { foreignKey: 'id', sourceKey: 'assetId' });
+db['assets'].belongsTo(db['bets'], { foreignKey: 'id', targetKey: 'assetId' });
 
-db['betlogs'].hasOne(db['assets'], {foreignKey: 'id', sourceKey: 'assetId'});
-db['assets'].belongsTo(db['betlogs'], {foreignKey: 'id', targetKey: 'assetId'});
+db['betlogs'].hasOne(db['assets'], { foreignKey: 'id', sourceKey: 'assetId' });
+db['assets'].belongsTo(db['betlogs'], {
+  foreignKey: 'id',
+  targetKey: 'assetId',
+});
 
-db['transactions'].hasOne(db['users'], {foreignKey: 'id', sourceKey: 'uid'});
-db['users'].belongsTo(db['transactions'], {foreignKey: 'id', targetKey: 'uid'});
+db['transactions'].hasOne(db['users'], { foreignKey: 'id', sourceKey: 'uid' });
+db['users'].belongsTo(db['transactions'], {
+  foreignKey: 'id',
+  targetKey: 'uid',
+});
 
-db['users'].hasMany(db['transactions'], {foreignKey: 'uid', sourceKey: 'id'});
-db['transactions'].belongsTo(db['users'], {foreignKey: 'uid', targetKey: 'id'});
-
+db['users'].hasMany(db['transactions'], { foreignKey: 'uid', sourceKey: 'id' });
+db['transactions'].belongsTo(db['users'], {
+  foreignKey: 'uid',
+  targetKey: 'id',
+});
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
