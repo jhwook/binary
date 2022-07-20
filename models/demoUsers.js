@@ -21,6 +21,14 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(100),
       allowNull: true,
       unique: true
+    },
+    timestampunixstarttime: {
+      type: DataTypes.BIGINT,
+      allowNull: true
+    },
+    timestampunixexpiry: {
+      type: DataTypes.BIGINT,
+      allowNull: true
     }
   }, {
     sequelize,

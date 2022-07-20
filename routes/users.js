@@ -11,7 +11,7 @@ const LOGGER = console.log;
 let { Op } = db.Sequelize;
 const { web3 } = require('../configs/configweb3');
 let { I_LEVEL, LEVEL_I } = require('../configs/userlevel');
-
+let moment = require('moment');
 var router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -125,8 +125,12 @@ router.get('/auth', auth, async (req, res) => {
 
 router.get('/demo/token', async (req, res) => {
   let demo_uuid = uuidv4();
+  let timestampunixstarttime = moment().unix();
+  let timestampunixexpiry = timestampunixstarttime + 24 * 3600;
   db['demoUsers'].create({
     uuid: demo_uuid,
+    timestampunixstarttime,
+    timestampunixexpiry,
   });
   let token = jwt.sign({ type: 'JWT', demo_uuid }, process.env.JWT_SECRET, {
     expiresIn: '24h',

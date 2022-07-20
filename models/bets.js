@@ -58,6 +58,10 @@ module.exports = function(sequelize, DataTypes) {
         },
         key: 'uuid'
       }
+    },
+    diffRate: {
+      type: DataTypes.STRING(11),
+      allowNull: true
     }
   }, {
     sequelize,

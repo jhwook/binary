@@ -30,29 +30,27 @@ module.exports = (io, socket) => {
     // data = socket.handshake.query.list;
     console.log('data', data);
     if (Array.isArray(data)) {
-      let dividendrate = await calculate_dividendrate(data);
+      let dividendrate = await calculate_dividendrate(data, timenow_unix);
       socket.emit('dividendrate', dividendrate);
     }
   });
 
-  const calculate_dividendrate = async (assetList) => {
-    console.log('timenow_unix', timenow_unix);
+  const calculate_dividendrate = async (assetList, expiry) => {
+    console.log('expiry', expiry);
     let result = [];
     for (let i = 0; i < assetList.length; i++) {
-      timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
-
       let resp = await db['bets'].findAll({
         where: {
           assetId: assetList[i],
           // expiry: timenow.unix(),
-          expiry: timenow_unix,
+          expiry,
           type: 'LIVE',
         },
         raw: true,
       });
 
       if (resp.length === 0) {
-        let expiry_date = moment.unix(timenow_unix).format('MM/DD HH:mm:ss');
+        let expiry_date = moment.unix(expiry).format('MM/DD HH:mm:ss');
         result.push({
           assetId: assetList[i],
           round: expiry_date,
@@ -60,6 +58,22 @@ module.exports = (io, socket) => {
           high_side_amount: 0,
           dividendrate: { low_side_dividendrate: 0, high_side_dividendrate: 0 },
         });
+        db['bets'].update(
+          { diffRate: 0 },
+          {
+            where: {
+              assetId: assetList[i],
+              expiry,
+              side: 'HIGH',
+            },
+          }
+        );
+        db['bets'].update(
+          { diffRate: 0 },
+          {
+            where: { assetId: assetList[i], expiry, side: 'LOW' },
+          }
+        );
       }
       let sorted_bets = {};
       resp.map((bet) => {
@@ -86,12 +100,16 @@ module.exports = (io, socket) => {
   const calculatebets = (i, sorted_bets) => {
     let low_side_amount = 0;
     let high_side_amount = 0;
+    let low_side_dividendrate;
+    let high_side_dividendrate;
     let result;
     let rounds = Object.keys(sorted_bets);
 
     const calculate_sorted_bet = (index, round, bets) => {
+      let expiry_;
       bets.map((bet, i) => {
-        let { side, amount } = bet;
+        let { side, amount, expiry } = bet;
+        expiry_ = expiry;
         if (side === 'HIGH') {
           high_side_amount += amount;
         } else if (side === 'LOW') {
@@ -99,11 +117,11 @@ module.exports = (io, socket) => {
         }
       });
 
-      let low_side_dividendrate = (
+      low_side_dividendrate = (
         (high_side_amount / low_side_amount) *
         100
       ).toFixed(2);
-      let high_side_dividendrate = (
+      high_side_dividendrate = (
         (low_side_amount / high_side_amount) *
         100
       ).toFixed(2);
@@ -115,6 +133,14 @@ module.exports = (io, socket) => {
         high_side_amount,
         dividendrate: { low_side_dividendrate, high_side_dividendrate },
       };
+      db['bets'].update(
+        { diffRate: high_side_dividendrate },
+        { where: { assetId: index, expiry: expiry_, side: 'HIGH' } }
+      );
+      db['bets'].update(
+        { diffRate: low_side_dividendrate },
+        { where: { assetId: index, expiry: expiry_, side: 'LOW' } }
+      );
     };
 
     rounds.map((round) => {

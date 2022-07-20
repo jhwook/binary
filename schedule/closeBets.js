@@ -60,7 +60,6 @@ cron.schedule('10 * * * * *', async () => {
         where: {
           assetId: i,
           [Op.or]: [{ starting: timenow.unix() }, { expiry: timenow.unix() }],
-          // expiry: timenow.unix(),
         },
         raw: true,
       })
@@ -91,7 +90,8 @@ cron.schedule('10 * * * * *', async () => {
               { startingPrice: price },
               { where: { id: v.id } }
             );
-          } else {
+          }
+          if (v.expiry == timenow.unix()) {
             if (v.startingPrice == price) {
               status = 2;
             } else if (v.startingPrice > price) {
@@ -122,6 +122,7 @@ cron.schedule('10 * * * * *', async () => {
                 type: v.type,
                 endingPrice: price,
                 status: status,
+                diffRate: v.diffRate,
               })
               .then((_) => {
                 db['bets'].destroy({ where: { id: v.id } });
@@ -130,7 +131,8 @@ cron.schedule('10 * * * * *', async () => {
         });
       });
     if (exists) {
-      await settlebets(i, timenow.unix());
+      await settlebets(i, timenow.unix(), 'LIVE');
+      await settlebets(i, timenow.unix(), 'DEMO');
     } else {
       //console.log(exists)
     }
@@ -144,7 +146,7 @@ cron.schedule('10 * * * * *', async () => {
     3-> 짐
 */
 
-const settlebets = async (assetId, expiry) => {
+const settlebets = async (assetId, expiry, type) => {
   const t = db.sequelize.transaction();
   try {
     let [{ winnerTotalAmount }] = await db['betlogs'].findAll(
@@ -152,6 +154,7 @@ const settlebets = async (assetId, expiry) => {
         where: {
           assetId,
           expiry,
+          type,
           status: 1,
         },
         attributes: [
@@ -173,6 +176,7 @@ const settlebets = async (assetId, expiry) => {
         where: {
           assetId,
           expiry,
+          type,
           status: 0,
         },
         attributes: [
@@ -195,6 +199,7 @@ const settlebets = async (assetId, expiry) => {
           where: {
             assetId,
             expiry,
+            type,
             status: 2,
           },
           raw: true,
@@ -232,6 +237,7 @@ const settlebets = async (assetId, expiry) => {
           where: {
             assetId,
             expiry,
+            type,
             status: 0,
           },
           raw: true,
@@ -261,6 +267,7 @@ const settlebets = async (assetId, expiry) => {
           where: {
             assetId,
             expiry,
+            type,
             status: 1,
           },
           raw: true,
@@ -271,6 +278,10 @@ const settlebets = async (assetId, expiry) => {
       )
       .then(async (winners) => {
         if (winners.length < 1) {
+          return;
+        }
+
+        if (type === 'DEMO') {
           return;
         }
 

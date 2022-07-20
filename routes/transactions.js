@@ -30,13 +30,13 @@ router.patch('/demo/fund/:amount', auth, async (req, res) => {
     })
     .then((result) => {
       console.log(+result.total + amount);
-      if (+result.total + amount > 1000000000000000) {
-        resperr(res, 'TOO-MUCH-DEMO-BALANCE');
-      } else {
-        result.increment(['avail', 'total'], { by: amount }).then((_) => {
-          respok(res, null, null, { total: result.total });
-        });
-      }
+      // if (+result.total + amount > 1000000000000000) {
+      //   resperr(res, 'TOO-MUCH-DEMO-BALANCE');
+      // } else {
+      result.increment(['avail', 'total'], { by: amount }).then((_) => {
+        respok(res, null, null, { total: result.total });
+      });
+      // }
     });
 });
 
