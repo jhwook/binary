@@ -1,16 +1,33 @@
 const moment = require('moment');
 const cron = require('node-cron');
 const db = require('../models');
+const cliredisa = require('async-redis').createClient();
+const { ASSETID_REDIS_SYMBOL } = require('../utils/ticker_symbol');
+// const ASSETID_REDIS_SYMBOL = [
+//   '__SKIPPER__',
+//   'btcusdt',
+//   'ethusdt',
+//   'xrpusdt',
+//   'EUR/USD',
+//   'USD/JPY',
+//   'GBP/USD',
+//   'USD/CAD',
+//   'USD/CHF',
+// ];
 
-const betbot = () => {
+const betbot = async () => {
   let now = moment().format('MM/DD HH:mm:ss');
   let timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
 
   let now_unix = moment().startOf('minute').unix();
-  for (let j = 1; j <= 13; j++) {
+  for (let j = 1; j <= 8; j++) {
+    let currentPrice = await cliredisa.hget(
+      'STREAM_ASSET_PRICE_PER_MIN',
+      ASSETID_REDIS_SYMBOL[j]
+    );
     for (let i = 0; i < 4; i++) {
-      let uid_list = [93, 94, 95, 113];
-      let amount = Math.floor(Math.random() * 10 ** 2);
+      let uid_list = [93, 94, 95, 114];
+      let amount = Math.floor(Math.random() * 10 ** 2) * 10 ** 6;
       let side = 'HIGH';
       if (i % 2 === 0) side = 'LOW';
       db['bets'].create({
@@ -21,7 +38,7 @@ const betbot = () => {
         expiry: timenow_unix,
         side,
         type: 'LIVE',
-        startingPrice: 0.1,
+        startingPrice: currentPrice,
       });
     }
   }

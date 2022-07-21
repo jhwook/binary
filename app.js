@@ -1,12 +1,12 @@
 var createError = require('http-errors');
-var bodyParser = require('body-parser')
+var bodyParser = require('body-parser');
 var express = require('express');
 var useragent = require('express-useragent');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var app = express();
-const { getipaddress } = require('./utils/session')
+const { getipaddress } = require('./utils/session');
 /**
  * Defined Socket Server
  */
@@ -22,7 +22,6 @@ const { getipaddress } = require('./utils/session')
 //   },
 //   allowEIO3: true
 // })
-
 
 /**
  * Defined Routers
@@ -46,9 +45,9 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 app.use((req, res, next) => {
-  LOGGER(getipaddress(req))
-  next()
-})
+  LOGGER(getipaddress(req));
+  next();
+});
 app.use(logger('dev'));
 app.use(express.json());
 app.use(useragent.express());
@@ -61,21 +60,21 @@ app.use(function (e, req, res, next) {
   res.status(e.status || 500);
   res.render('error', {
     message: e.message,
-    error: e
-  })
-})
+    error: e,
+  });
+});
 
 app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(500).send('Something broke!')
-})
+  console.error(err.stack);
+  res.status(500).send('Something broke!');
+});
 //app.use(express.multipart());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
-app.use('/users', usersRouter)
-app.use('/assets', assetsRouter)
-app.use('/transactions', transactionsRouter)
+app.use('/users', usersRouter);
+app.use('/assets', assetsRouter);
+app.use('/transactions', transactionsRouter);
 app.use('/bookmarks', bookmarksRouter);
 app.use('/queries', queryRouter);
 app.use('/bets', betRouter);
@@ -90,10 +89,11 @@ app.use(function (err, req, res, next) {
   res.render('error');
 });
 
-const cron = require('node-cron'), moment = require('moment');
+const cron = require('node-cron'),
+  moment = require('moment');
 cron.schedule('*/1 * * * *', () => {
-  console.log(moment().format('HH:mm:ss, YYYY-MM-DD'), '@binary')
-})
-
+  console.log(moment().format('HH:mm:ss, YYYY-MM-DD'), '@binary');
+});
+// require("./service-rmq/cal_dividendrate-rmq");
 
 module.exports = app;

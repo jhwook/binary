@@ -1,9 +1,4 @@
-const I_LEVEL = {
-  0: 'BRONZE',
-  1: 'SILVER',
-  2: 'GOLD',
-  3: 'DIAMOND',
-};
+const I_LEVEL = ['BRONZE', 'SILVER', 'GOLD', 'DIAMOND'];
 
 const LEVEL_I = {
   BRONZE: 0,

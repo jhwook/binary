@@ -9,7 +9,19 @@ const { lookup } = require('geoip-lite');
 var moment = require('moment');
 const e = require('express');
 const LOGGER = console.log;
-
+const cliredisa = require('async-redis').createClient();
+const { ASSETID_REDIS_SYMBOL } = require('../utils/ticker_symbol');
+// const ASSETID_REDIS_SYMBOL = [
+//   '__SKIPPER__',
+//   'btcusdt',
+//   'ethusdt',
+//   'xrpusdt',
+//   'EUR/USD',
+//   'USD/JPY',
+//   'GBP/USD',
+//   'USD/CAD',
+//   'USD/CHF',
+// ];
 var router = express.Router();
 
 router.post(
@@ -20,6 +32,10 @@ router.post(
 
     let { assetId, amount, dur, side, type } = req.params;
     let { id } = req.decoded;
+    let currentPrice = await cliredisa.hget(
+      'STREAM_ASSET_PRICE_PER_MIN',
+      ASSETID_REDIS_SYMBOL[assetId]
+    );
 
     if (!assetId || !amount || !type) {
       resperr(res, 'INVALID-DATA');
@@ -49,6 +65,7 @@ router.post(
           expiry: expiry.unix(),
           side: side,
           type: type,
+          startingPrice: currentPrice,
         },
         {
           transaction: t,

@@ -2,22 +2,23 @@ const db = require('../models');
 let { Op } = db.Sequelize;
 let moment = require('moment');
 const LOGGER = console.log;
-const ASSETID_SYMBOL = [
-  '___SKIPPER___',
-  'BTC-USD',
-  'ETH-USD',
-  'XRP-USD',
-  'EURUSD=X',
-  'JPY=X',
-  'GBPUSD=X',
-  'CAD=X',
-  'CHF=X',
-  '9988.HK',
-  '601398.SS',
-  '601288.SS',
-  '0700.HK',
-  '600519.SS',
-];
+const { ASSETID_SYMBOL } = require('../utils/ticker_symbol');
+// const ASSETID_SYMBOL = [
+//   '___SKIPPER___',
+//   'BTC-USD',
+//   'ETH-USD',
+//   'XRP-USD',
+//   'EURUSD=X',
+//   'JPY=X',
+//   'GBPUSD=X',
+//   'CAD=X',
+//   'CHF=X',
+//   '9988.HK',
+//   '601398.SS',
+//   '601288.SS',
+//   '0700.HK',
+//   '600519.SS',
+// ];
 let timenow = moment().startOf('minute');
 let now_unix = moment().startOf('minute').unix();
 let timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
@@ -36,6 +37,7 @@ module.exports = (io, socket) => {
   });
 
   const calculate_dividendrate = async (assetList, expiry) => {
+    expiry = moment().add(1, 'minutes').set('second', 0).unix();
     console.log('expiry', expiry);
     let result = [];
     for (let i = 0; i < assetList.length; i++) {
@@ -74,23 +76,24 @@ module.exports = (io, socket) => {
             where: { assetId: assetList[i], expiry, side: 'LOW' },
           }
         );
-      }
-      let sorted_bets = {};
-      resp.map((bet) => {
-        let { expiry } = bet;
-
-        let expiry_date = moment.unix(expiry).format('MM/DD HH:mm:ss');
-        if (!sorted_bets[expiry_date]) {
-          sorted_bets[expiry_date] = [bet];
-        } else {
-          sorted_bets[expiry_date].push(bet);
-        }
-      });
-
-      if (Object.keys(sorted_bets).length === 0) {
-        // LOGGER(v, '@no bets');
       } else {
-        result.push(calculatebets(assetList[i], sorted_bets));
+        let sorted_bets = {};
+        resp.map((bet) => {
+          let { expiry } = bet;
+
+          let expiry_date = moment.unix(expiry).format('MM/DD HH:mm:ss');
+          if (!sorted_bets[expiry_date]) {
+            sorted_bets[expiry_date] = [bet];
+          } else {
+            sorted_bets[expiry_date].push(bet);
+          }
+        });
+
+        if (Object.keys(sorted_bets).length === 0) {
+          // LOGGER(v, '@no bets');
+        } else {
+          result.push(calculatebets(assetList[i], sorted_bets));
+        }
       }
     }
 
