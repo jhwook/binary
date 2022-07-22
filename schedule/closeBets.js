@@ -9,49 +9,12 @@ const axios = require('axios');
 let { Op } = db.Sequelize;
 let { I_LEVEL } = require('../configs/userlevel');
 const {
-  ASSETID_SYMBOL,
   ASSETID_API_SYMBOL,
   ASSETID_MARKET,
+  ASSETID_REDIS_SYMBOL,
 } = require('../utils/ticker_symbol');
-// const ASSETID_SYMBOL = [
-//   '___SKIPPER___',
-//   'BTC-USD',
-//   'ETH-USD',
-//   'XRP-USD',
-//   'EURUSD=X',
-//   'JPY=X',
-//   'GBPUSD=X',
-//   'CAD=X',
-//   'CHF=X',
-//   '9988.HK',
-//   '601398.SS',
-//   '601288.SS',
-//   '0700.HK',
-//   '600519.SS',
-// ];
-// const ASSETID_API_SYMBOL = [
-//   '__SKIPPER__',
-//   'BTCUSDT',
-//   'ETHUSDT',
-//   'XRPUSDT',
-//   'EUR/USD',
-//   'USD/JPY',
-//   'GBP/USD',
-//   'USD/CAD',
-//   'USD/CHF',
-// ];
-// const ASSETID_MARKET = [
-//   '__SKIPPER__',
-//   'BINANCE',
-//   'BINANCE',
-//   'BINANCE',
-//   'FXCM',
-//   'FXCM',
-//   'FXCM',
-//   'FXCM',
-//   'FXCM',
-//   'FXCM',
-// ];
+const cliredisa = require('async-redis').createClient();
+
 cron.schedule('10 * * * * *', async () => {
   console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
   const timenow = moment().startOf('minute');
@@ -75,7 +38,7 @@ cron.schedule('10 * * * * *', async () => {
       return value_;
     });
 
-  ASSETID_SYMBOL.map(async (v, i) => {
+  ASSETID_REDIS_SYMBOL.map(async (v, i) => {
     if (i == 0) {
       return;
     }
@@ -90,39 +53,28 @@ cron.schedule('10 * * * * *', async () => {
         })
         .then(async (result) => {
           if (!result) return;
-          let { data } = await axios.get(
-            `https://finnhub.io/api/v1/crypto/candle?symbol=${
-              ASSETID_MARKET[i]
-            }:${
-              ASSETID_API_SYMBOL[i]
-            }&resolution=1&from=${timenow.unix()}&to=${timenow.unix()}&token=c9se572ad3i4aps1soq0`
+          let currentPrice = await cliredisa.hget(
+            'STREAM_ASSET_PRICE_PER_MIN',
+            ASSETID_REDIS_SYMBOL[i]
           );
-          let price;
-          if (data && ASSETID_API_SYMBOL[i]) {
-            console.log('data.c[0]', data.c[0]);
-            if (data.c[0]) price = data.c[0];
-            else price = Math.random().toFixed(10);
-            console.log(`${ASSETID_API_SYMBOL[i]}`, price);
-          } else if (!ASSETID_API_SYMBOL[i]) {
-            price = Math.random().toFixed(10);
+
+          if (!currentPrice) {
+            currentPrice = Math.random().toFixed(10);
           }
 
-          //let {data} = await axios.get(`https://yfapi.net/v7/finance/opti(ons/${v}?date=${timenow.unix()}`, {headers:{'X-API-KEY': 'r9e2WqrJWDbMMeoQQMbd8bp09FGkLFXaMKDZRR3f'}})
-          //data.optionChain.result[0].quote.regularMarketPrice;
           let status;
           let sumBetAmount_lose_win = [0, 0];
           result.map(async (v) => {
             if (v.starting == timenow.unix()) {
-              //await db['assets'].update({currentPrice: price}, {where:{id: i}})
               await db['bets'].update(
-                { startingPrice: price },
+                { startingPrice: currentPrice },
                 { where: { id: v.id } }
               );
             }
             if (v.expiry == timenow.unix()) {
-              if (v.startingPrice == price) {
+              if (v.startingPrice == currentPrice) {
                 status = 2;
-              } else if (v.startingPrice > price) {
+              } else if (v.startingPrice > currentPrice) {
                 //가격이 떨어짐
                 if (v.side.toUpperCase() == 'HIGH') {
                   status = 0;
@@ -131,7 +83,7 @@ cron.schedule('10 * * * * *', async () => {
                   status = 1;
                   sumBetAmount_lose_win[1] += v.amount;
                 }
-              } else if (v.startingPrice < price) {
+              } else if (v.startingPrice < currentPrice) {
                 if (v.side.toUpperCase() == 'HIGH') {
                   status = 1;
                   sumBetAmount_lose_win[1] += v.amount;
@@ -152,7 +104,7 @@ cron.schedule('10 * * * * *', async () => {
                   startingPrice: v.startingPrice,
                   side: v.side,
                   type: v.type,
-                  endingPrice: price,
+                  endingPrice: currentPrice,
                   status: status,
                   diffRate: v.diffRate,
                 })
@@ -247,7 +199,6 @@ const settlebets = async (
   } else if (status !== 2 && type === 'LIVE') {
     if (winnerTotalAmount === 0 || loserTotalAmount === 0) {
     } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
-      console.log(type, assetId, sumBetAmount_lose_win, status);
       // const t = await db.sequelize.transaction();
       try {
         await db['betlogs']
@@ -340,7 +291,7 @@ const settlebets = async (
                           // }
                         );
                         await db['balances'].increment(
-                          'avail',
+                          ['total', 'avail'],
                           {
                             by: fee_to_referer,
                             where: { uid: winner_referer_uid, typestr: v.type },

@@ -8,24 +8,8 @@ const cron = require('node-cron');
 let { Op } = db.Sequelize;
 const timenow = moment().startOf('minute');
 const { ASSETID_SYMBOL } = require('../utils/ticker_symbol');
-// const ASSETID_SYMBOL = [
-//   '___SKIPPER___',
-//   'BTC-USD',
-//   'ETH-USD',
-//   'XRP-USD',
-//   'EURUSD=X',
-//   'JPY=X',
-//   'GBPUSD=X',
-//   'CAD=X',
-//   'CHF=X',
-//   '9988.HK',
-//   '601398.SS',
-//   '601288.SS',
-//   '0700.HK',
-//   '600519.SS',
-// ];
 
-const calculate_dividendrate = async (assetList) => {
+const calculate_dividendrate = async (assetList, type) => {
   let result = [];
   for (let i = 0; i < assetList.length; i++) {
     // timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
@@ -36,7 +20,7 @@ const calculate_dividendrate = async (assetList) => {
         assetId: assetList[i],
         // expiry: timenow.unix(),
         expiry,
-        type: 'LIVE',
+        type,
       },
       raw: true,
     });
@@ -82,14 +66,14 @@ const calculate_dividendrate = async (assetList) => {
     if (Object.keys(sorted_bets).length === 0) {
       // LOGGER(v, '@no bets');
     } else {
-      result.push(calculatebets(assetList[i], sorted_bets));
+      result.push(calculatebets(assetList[i], sorted_bets, type));
     }
   }
 
   return result;
 };
 
-const calculatebets = (i, sorted_bets) => {
+const calculatebets = (i, sorted_bets, type) => {
   let low_side_amount = 0;
   let high_side_amount = 0;
   let low_side_dividendrate;
@@ -117,7 +101,15 @@ const calculatebets = (i, sorted_bets) => {
       (low_side_amount / high_side_amount) *
       100
     ).toFixed(2);
-
+    db['logrounds'].create({
+      assetId: index,
+      totalLowAmount: low_side_amount,
+      totalHighAmount: high_side_amount,
+      expiry: expiry_,
+      type,
+      lowDiffRate: low_side_dividendrate,
+      highDiffRate: high_side_dividendrate,
+    });
     result = {
       assetId: index,
       round,
@@ -144,7 +136,8 @@ const calculatebets = (i, sorted_bets) => {
 
 cron.schedule('0 * * * * *', async () => {
   LOGGER('@Calculate dividendrates', moment().format('HH:mm:ss', '@binopt'));
-  calculate_dividendrate([1, 2, 3, 4, 5, 6, 7, 8]);
+  await calculate_dividendrate([1, 2, 3, 4, 5, 6, 7, 8], 'LIVE');
+  await calculate_dividendrate([1, 2, 3, 4, 5, 6, 7, 8], 'DEMO');
 });
 
 module.exports = { calculate_dividendrate };

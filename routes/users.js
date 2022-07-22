@@ -744,6 +744,65 @@ router.get('/query/:tblname/:offset/:limit', auth, (req, res) => {
     });
 });
 
+router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
+  let { id } = req.decoded;
+  let { type, offset, limit } = req.params;
+  let { startDate, endDate } = req.query;
+  let jfilter = {};
+  console.log('startDate', moment(startDate).format('YYYY-MM-DD HH:mm:ss'));
+  if (startDate && endDate) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.between]: [startDate, endDate],
+      },
+    };
+  }
+  // id = 114;
+  offset = +offset;
+  limit = +limit;
+  let bet_log = await db['betlogs']
+    .findAndCountAll({
+      where: {
+        uid: id,
+        type,
+        ...jfilter,
+      },
+      raw: true,
+      offset,
+      limit,
+      order: [['id', 'DESC']],
+    })
+    .then(async (resp) => {
+      let promises = resp.rows.map(async (el) => {
+        let { assetId, amount, diffRate, status } = el;
+        if (status === 0) {
+          amount = amount / 10 ** 6;
+          let profit_amount = amount.toFixed(2);
+          el['profit_amount'] = -1 * profit_amount;
+          el['profit_percent'] = (-1 * (profit_amount / amount) * 100).toFixed(
+            0
+          );
+        }
+        if (status === 1) {
+          amount = amount / 10 ** 6;
+          let profit_amount = ((amount * diffRate) / 100).toFixed(2);
+          el['profit_amount'] = profit_amount;
+          el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(0);
+        }
+        let assetName = await db['assets']
+          .findOne({ where: { id: assetId }, raw: true })
+          .then((resp) => {
+            console.log(resp);
+            el['name'] = resp.name;
+          });
+        return el;
+      });
+      await Promise.all(promises);
+      respok(res, null, null, { bet_log: resp });
+    });
+});
+
 router.patch('/profile', auth, async (req, res) => {
   let { firstName, lastName, email } = req.body;
   let { id } = req.decoded;

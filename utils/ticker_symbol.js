@@ -19,11 +19,6 @@ const ASSETID_SYMBOL = [
   'GBPUSD=X',
   'CAD=X',
   'CHF=X',
-  '9988.HK',
-  '601398.SS',
-  '601288.SS',
-  '0700.HK',
-  '600519.SS',
 ];
 const ASSETID_API_SYMBOL = [
   '__SKIPPER__',
@@ -50,7 +45,6 @@ const ASSETID_MARKET = [
 ];
 
 module.exports = {
-  ASSETID_SYMBOL,
   ASSETID_API_SYMBOL,
   ASSETID_MARKET,
   ASSETID_REDIS_SYMBOL,

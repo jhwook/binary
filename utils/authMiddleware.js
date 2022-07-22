@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('../models');
 require('dotenv').config();
 exports.auth = (req, res, next) => {
   try {
@@ -32,10 +33,36 @@ exports.auth = (req, res, next) => {
 
 exports.softauth = (req, res, next) => {
   try {
-    req.decoded = jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
+    jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
     return next();
   } catch (error) {
     req.decoded = false;
     return next();
   }
+};
+
+exports.adminauth = async (req, res, next) => {
+  let { id } = jwt.verify(
+    `${req.headers.authorization}`,
+    process.env.JWT_SECRET,
+    (err, decoded) => {
+      if (err) {
+        throw err;
+      }
+
+      return decoded;
+    }
+  );
+
+  let user = await db['users'].findOne({ where: { id }, raw: true });
+  console.log('user.isadmin', user.isadmin);
+  console.log('user.isbranch', user.isbranch);
+  if (user.isadmin === user.isbranch) {
+    return res.status(401).json({
+      code: 401,
+      message: 'No Admin Privileges',
+    });
+  }
+
+  return next();
 };
