@@ -1,10 +1,10 @@
 /* jshint indent: 2 */
 
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('verifycode', {
+  return sequelize.define('feesettings', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER(11).UNSIGNED,
+      type: DataTypes.INTEGER(10).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
@@ -17,20 +17,28 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: true
     },
-    uid: {
-      type: DataTypes.INTEGER(11).UNSIGNED,
-      allowNull: false
-    },
-    code: {
-      type: DataTypes.INTEGER(11),
+    key_: {
+      type: DataTypes.STRING(50),
       allowNull: true
     },
-    expiry: {
-      type: DataTypes.BIGINT,
+    value_: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    subkey_: {
+      type: DataTypes.STRING(50),
+      allowNull: true
+    },
+    note: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    nettype: {
+      type: DataTypes.STRING(60),
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'verifycode'
+    tableName: 'feesettings'
   });
 };

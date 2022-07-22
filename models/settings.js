@@ -1,9 +1,10 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('settings', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
@@ -17,17 +18,6 @@ module.exports = function(sequelize, DataTypes) {
     }
   }, {
     sequelize,
-    tableName: 'settings',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-    ]
+    tableName: 'settings'
   });
 };

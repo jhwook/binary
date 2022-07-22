@@ -1,9 +1,10 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('country_code', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER(11),
       allowNull: false,
       primaryKey: true
     },
@@ -21,17 +22,6 @@ module.exports = function(sequelize, DataTypes) {
     }
   }, {
     sequelize,
-    tableName: 'country_code',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-    ]
+    tableName: 'country_code'
   });
 };

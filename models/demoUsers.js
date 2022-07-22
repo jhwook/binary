@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('verifycode', {
+  return sequelize.define('demoUsers', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER(11).UNSIGNED,
@@ -17,20 +17,21 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: true
     },
-    uid: {
-      type: DataTypes.INTEGER(11).UNSIGNED,
-      allowNull: false
+    uuid: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      unique: true
     },
-    code: {
-      type: DataTypes.INTEGER(11),
+    timestampunixstarttime: {
+      type: DataTypes.BIGINT,
       allowNull: true
     },
-    expiry: {
+    timestampunixexpiry: {
       type: DataTypes.BIGINT,
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'verifycode'
+    tableName: 'demoUsers'
   });
 };

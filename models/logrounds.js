@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('betlogs', {
+  return sequelize.define('logrounds', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER(11).UNSIGNED,
@@ -17,33 +17,17 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.DATE,
       allowNull: true
     },
-    uid: {
-      type: DataTypes.INTEGER(11).UNSIGNED,
-      allowNull: true,
-      references: {
-        model: {
-          tableName: 'users',
-        },
-        key: 'id'
-      }
-    },
     assetId: {
       type: DataTypes.INTEGER(11).UNSIGNED,
-      allowNull: false,
-      references: {
-        model: {
-          tableName: 'assets',
-        },
-        key: 'id'
-      }
+      allowNull: false
     },
-    amount: {
+    totalLowAmount: {
       type: DataTypes.BIGINT,
       allowNull: true
     },
-    starting: {
+    totalHighAmount: {
       type: DataTypes.BIGINT,
-      allowNull: false
+      allowNull: true
     },
     expiry: {
       type: DataTypes.BIGINT,
@@ -53,11 +37,7 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(20),
       allowNull: true
     },
-    endingPrice: {
-      type: DataTypes.STRING(20),
-      allowNull: true
-    },
-    side: {
+    endPrice: {
       type: DataTypes.STRING(20),
       allowNull: true
     },
@@ -65,30 +45,20 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(50),
       allowNull: true
     },
-    status: {
-      type: DataTypes.INTEGER(11).UNSIGNED,
+    uuid: {
+      type: DataTypes.STRING(100),
       allowNull: true
     },
-    betId: {
-      type: DataTypes.INTEGER(11),
-      allowNull: true
-    },
-    diffRate: {
+    lowDiffRate: {
       type: DataTypes.STRING(11),
       allowNull: true
     },
-    uuid: {
-      type: DataTypes.STRING(100),
-      allowNull: true,
-      references: {
-        model: {
-          tableName: 'demoUsers',
-        },
-        key: 'uuid'
-      }
+    highDiffRate: {
+      type: DataTypes.STRING(11),
+      allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'betlogs'
+    tableName: 'logrounds'
   });
 };

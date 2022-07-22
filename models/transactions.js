@@ -1,26 +1,29 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('transactions', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
     createdat: {
       type: DataTypes.DATE,
       allowNull: true,
-      defaultValue: Sequelize.Sequelize.fn('current_timestamp')
+      defaultValue: sequelize.fn('current_timestamp')
     },
     updatedat: {
       type: DataTypes.DATE,
       allowNull: true
     },
     uid: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       references: {
-        model: 'users',
+        model: {
+          tableName: 'users',
+        },
         key: 'id'
       }
     },
@@ -33,7 +36,7 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     type: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER(11),
       allowNull: true
     },
     typestr: {
@@ -41,21 +44,21 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     status: {
-      type: DataTypes.TINYINT,
+      type: DataTypes.INTEGER(3),
       allowNull: true
     },
     verifier: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER(11),
       allowNull: true
     },
     target_uid: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: true
     },
     txhash: {
       type: DataTypes.STRING(300),
       allowNull: true,
-      unique: "txhash"
+      unique: true
     },
     localeAmount: {
       type: DataTypes.BIGINT,
@@ -82,38 +85,12 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     checked: {
-      type: DataTypes.BOOLEAN,
+      type: DataTypes.INTEGER(1),
       allowNull: true,
       defaultValue: 0
     }
   }, {
     sequelize,
-    tableName: 'transactions',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-      {
-        name: "txhash",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "txhash" },
-        ]
-      },
-      {
-        name: "FK_users_transactions_uid",
-        using: "BTREE",
-        fields: [
-          { name: "uid" },
-        ]
-      },
-    ]
+    tableName: 'transactions'
   });
 };

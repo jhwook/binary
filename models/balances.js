@@ -1,17 +1,20 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('balances', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
     uid: {
-      type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false,
+      type: DataTypes.INTEGER(11).UNSIGNED,
+      allowNull: true,
       references: {
-        model: 'users',
+        model: {
+          tableName: 'users',
+        },
         key: 'id'
       }
     },
@@ -33,27 +36,23 @@ module.exports = function(sequelize, DataTypes) {
     typestr: {
       type: DataTypes.STRING(20),
       allowNull: true
+    },
+    isMember: {
+      type: DataTypes.INTEGER(4),
+      allowNull: true
+    },
+    uuid: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      references: {
+        model: {
+          tableName: 'demoUsers',
+        },
+        key: 'uuid'
+      }
     }
   }, {
     sequelize,
-    tableName: 'balances',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-      {
-        name: "FK_users_uid",
-        using: "BTREE",
-        fields: [
-          { name: "uid" },
-        ]
-      },
-    ]
+    tableName: 'balances'
   });
 };

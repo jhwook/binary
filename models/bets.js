@@ -1,39 +1,40 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('bets', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
     createdat: {
       type: DataTypes.DATE,
       allowNull: true,
-      defaultValue: Sequelize.Sequelize.fn('current_timestamp')
+      defaultValue: sequelize.fn('current_timestamp')
     },
     updatedat: {
       type: DataTypes.DATE,
       allowNull: true
     },
     uid: {
-      type: DataTypes.INTEGER.UNSIGNED,
-      allowNull: false
+      type: DataTypes.INTEGER(11).UNSIGNED,
+      allowNull: true
     },
     assetId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(11).UNSIGNED,
       allowNull: false
     },
     amount: {
-      type: DataTypes.BIGINT.UNSIGNED,
+      type: DataTypes.BIGINT,
       allowNull: true
     },
     starting: {
-      type: DataTypes.BIGINT.UNSIGNED,
+      type: DataTypes.BIGINT,
       allowNull: false
     },
     expiry: {
-      type: DataTypes.BIGINT.UNSIGNED,
+      type: DataTypes.BIGINT,
       allowNull: false
     },
     startingPrice: {
@@ -47,20 +48,23 @@ module.exports = function(sequelize, DataTypes) {
     type: {
       type: DataTypes.STRING(50),
       allowNull: true
+    },
+    uuid: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      references: {
+        model: {
+          tableName: 'demoUsers',
+        },
+        key: 'uuid'
+      }
+    },
+    diffRate: {
+      type: DataTypes.STRING(11),
+      allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'bets',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-    ]
+    tableName: 'bets'
   });
 };

@@ -1,16 +1,17 @@
-const Sequelize = require('sequelize');
+/* jshint indent: 2 */
+
 module.exports = function(sequelize, DataTypes) {
   return sequelize.define('assets', {
     id: {
       autoIncrement: true,
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: DataTypes.INTEGER(10).UNSIGNED,
       allowNull: false,
       primaryKey: true
     },
     createdat: {
       type: DataTypes.DATE,
       allowNull: true,
-      defaultValue: Sequelize.Sequelize.fn('current_timestamp')
+      defaultValue: sequelize.fn('current_timestamp')
     },
     updatedat: {
       type: DataTypes.DATE,
@@ -39,7 +40,7 @@ module.exports = function(sequelize, DataTypes) {
     group: {
       type: DataTypes.STRING(40),
       allowNull: true,
-      comment: "1: crypto, 2:forex, 3:stock"
+      comment: '1: crypto, 2:forex, 3:stock'
     },
     groupstr: {
       type: DataTypes.STRING(40),
@@ -67,17 +68,6 @@ module.exports = function(sequelize, DataTypes) {
     }
   }, {
     sequelize,
-    tableName: 'assets',
-    timestamps: false,
-    indexes: [
-      {
-        name: "PRIMARY",
-        unique: true,
-        using: "BTREE",
-        fields: [
-          { name: "id" },
-        ]
-      },
-    ]
+    tableName: 'assets'
   });
 };
