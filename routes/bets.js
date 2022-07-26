@@ -32,10 +32,16 @@ router.post(
 
     let { assetId, amount, dur, side, type } = req.params;
     let { id } = req.decoded;
-    let currentPrice = await cliredisa.hget(
-      'STREAM_ASSET_PRICE_PER_MIN',
-      ASSETID_REDIS_SYMBOL[assetId]
-    );
+    let currentPrice;
+    await db['assets']
+      .findOne({ where: { active: 1, id: assetId }, raw: true })
+      .then(async (resp) => {
+        let { APISymbol } = resp;
+        currentPrice = await cliredisa.hget(
+          'STREAM_ASSET_PRICE_PER_MIN',
+          APISymbol
+        );
+      });
 
     if (!assetId || !amount || !type) {
       resperr(res, 'INVALID-DATA');
@@ -237,6 +243,25 @@ router.get('/my/:type', auth, async (req, res) => {
         nest: true,
       })
       .then(async (respdata) => {
+        respdata.map((el) => {
+          let { assetId, amount, diffRate, status } = el;
+          if (status === 0) {
+            amount = amount / 10 ** 6;
+            let profit_amount = amount.toFixed(2);
+            el['profit_amount'] = -1 * profit_amount;
+            el['profit_percent'] = (
+              -1 *
+              (profit_amount / amount) *
+              100
+            ).toFixed(0);
+          }
+          if (status === 1) {
+            amount = amount / 10 ** 6;
+            let profit_amount = ((amount * diffRate) / 100).toFixed(2);
+            el['profit_amount'] = profit_amount;
+            el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(0);
+          }
+        });
         let result = respdata.reduce(function (r, a) {
           //console.log(a)
           let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
@@ -249,7 +274,6 @@ router.get('/my/:type', auth, async (req, res) => {
         }, Object.create(null));
         let final = [];
         Object.keys(result).forEach((v) => {
-          console.log(v);
           final.push({
             time: v,
             value: result[v].sort((a, b) => {
@@ -264,6 +288,23 @@ router.get('/my/:type', auth, async (req, res) => {
   } else {
     resperr(res, 'INVALID-VALUE');
     return;
+  }
+});
+
+router.get('/count/:type', async (req, res) => {
+  let now = moment().startOf('minute').unix();
+  let { type } = req.params;
+
+  if (type === 'all') {
+    await db['bets']
+      .count({
+        where: { expiry: now },
+      })
+      .then((resp) => {
+        console.log(now);
+        console.log(resp);
+        respok(res, null, null, { count: resp });
+      });
   }
 });
 

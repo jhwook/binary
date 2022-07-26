@@ -7,6 +7,7 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var app = express();
 const { getipaddress } = require('./utils/session');
+const axios = require('axios');
 /**
  * Defined Socket Server
  */

@@ -33,7 +33,11 @@ exports.auth = (req, res, next) => {
 
 exports.softauth = (req, res, next) => {
   try {
-    jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
+    let result = jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
+    // console.log('result', result);
+    if (result) {
+      req.decoded = result.id;
+    }
     return next();
   } catch (error) {
     req.decoded = false;
@@ -55,8 +59,6 @@ exports.adminauth = async (req, res, next) => {
   );
 
   let user = await db['users'].findOne({ where: { id }, raw: true });
-  console.log('user.isadmin', user.isadmin);
-  console.log('user.isbranch', user.isbranch);
   if (user.isadmin === user.isbranch) {
     return res.status(401).json({
       code: 401,

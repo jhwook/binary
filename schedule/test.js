@@ -18,7 +18,7 @@
 //   results.forEach((data) => console.log(data));
 //   console.log('끝');
 // };
-
+const db = require('../models');
 // test([1, 2, 3, 4, 5, 6, 7]);
 const {
   calculate_dividendrate,

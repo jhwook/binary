@@ -39,7 +39,7 @@ module.exports = (io, socket) => {
       include: [
         {
           model: db['assets'],
-          attributes: ['name'],
+          attributes: ['name', 'socketAPISymbol'],
           nest: true,
         },
       ],
@@ -54,9 +54,10 @@ module.exports = (io, socket) => {
 
     let list = await Promise.all(
       respdata.map(async (v) => {
+        // console.log(v);
         let currentPrice = await cliredisa.hget(
           'STREAM_ASSET_PRICE',
-          ASSETID_REDIS_SYMBOL[v.assetId]
+          v.asset.socketAPISymbol
         );
         let winnerTotal = await db['bets'].findAll({
           where: {

@@ -100,7 +100,8 @@ async function createJWT(jfilter) {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: '24h',
+      expiresIn: '3h',
+      // expiresIn: '24h',
       issuer: 'EXPRESS',
     }
   );
@@ -133,7 +134,7 @@ router.get('/demo/token', async (req, res) => {
     timestampunixexpiry,
   });
   let token = jwt.sign({ type: 'JWT', demo_uuid }, process.env.JWT_SECRET, {
-    expiresIn: '24h',
+    expiresIn: '3h',
     issuer: 'EXPRESS',
   });
   // let ipaddr = requestIp.getClientIp(req).replace('::ffff:', '');
@@ -793,7 +794,6 @@ router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
         let assetName = await db['assets']
           .findOne({ where: { id: assetId }, raw: true })
           .then((resp) => {
-            console.log(resp);
             el['name'] = resp.name;
           });
         return el;
