@@ -39,7 +39,7 @@ module.exports = (io, socket) => {
       include: [
         {
           model: db['assets'],
-          attributes: ['name'],
+          attributes: ['name', 'socketAPISymbol'],
           nest: true,
         },
       ],
@@ -54,111 +54,133 @@ module.exports = (io, socket) => {
 
     let list = await Promise.all(
       respdata.map(async (v) => {
+        // console.log(v);
         let currentPrice = await cliredisa.hget(
           'STREAM_ASSET_PRICE',
-          ASSETID_REDIS_SYMBOL[v.assetId]
+          v.asset.socketAPISymbol
         );
-        let winnerTotal = await db['bets'].findAll({
+        // let winnerTotal = await db['bets'].findAll({
+        //   where: {
+        //     expiry: v.expiry,
+        //     [Op.or]: [
+        //       {
+        //         [Op.and]: [
+        //           { startingPrice: { [Op.lt]: currentPrice } },
+        //           { side: 'LOW' },
+        //         ],
+        //       },
+        //       {
+        //         [Op.and]: [
+        //           { startingPrice: { [Op.gt]: currentPrice } },
+        //           { side: 'HIGH' },
+        //         ],
+        //       },
+        //     ],
+        //   },
+        //   attributes: [
+        //     'amount',
+        //     [db.Sequelize.fn('sum', db.Sequelize.col('amount')), 'winnerTotal'],
+        //   ],
+        //   raw: true,
+        // });
+        let high_bet_amount = await db['bets'].findAll({
           where: {
             expiry: v.expiry,
-            [Op.or]: [
-              {
-                [Op.and]: [
-                  { startingPrice: { [Op.lt]: currentPrice } },
-                  { side: 'LOW' },
-                ],
-              },
-              {
-                [Op.and]: [
-                  { startingPrice: { [Op.gt]: currentPrice } },
-                  { side: 'HIGH' },
-                ],
-              },
-            ],
+            type: v.type,
+            assetId: v.assetId,
+            side: 'HIGH',
           },
           attributes: [
             'amount',
-            [db.Sequelize.fn('sum', db.Sequelize.col('amount')), 'winnerTotal'],
+            [
+              db.Sequelize.fn('sum', db.Sequelize.col('amount')),
+              'high_bet_amount',
+            ],
           ],
           raw: true,
         });
-        let loserTotal = await db['bets'].findAll({
-          expiry: v.expiry,
+        let low_bet_amount = await db['bets'].findAll({
           where: {
-            [Op.or]: [
-              {
-                [Op.and]: [
-                  { startingPrice: { [Op.gt]: currentPrice } },
-                  { side: 'LOW' },
-                ],
-              },
-              {
-                [Op.and]: [
-                  { startingPrice: { [Op.lt]: currentPrice } },
-                  { side: 'HIGH' },
-                ],
-              },
-            ],
+            expiry: v.expiry,
+            assetId: v.assetId,
+            type: v.type,
+            side: 'LOW',
           },
           attributes: [
             'amount',
-            [db.Sequelize.fn('sum', db.Sequelize.col('amount')), 'loserTotal'],
+            [
+              db.Sequelize.fn('sum', db.Sequelize.col('amount')),
+              'low_bet_amount',
+            ],
           ],
           raw: true,
         });
-        let winnerTotalAmount = winnerTotal[0].winnerTotal;
-        let loserTotalAmount = loserTotal[0].loserTotal;
+        // let loserTotal = await db['bets'].findAll({
+        //   expiry: v.expiry,
+        //   where: {
+        //     [Op.or]: [
+        //       {
+        //         [Op.and]: [
+        //           { startingPrice: { [Op.gt]: currentPrice } },
+        //           { side: 'LOW' },
+        //         ],
+        //       },
+        //       {
+        //         [Op.and]: [
+        //           { startingPrice: { [Op.lt]: currentPrice } },
+        //           { side: 'HIGH' },
+        //         ],
+        //       },
+        //     ],
+        //   },
+        //   attributes: [
+        //     'amount',
+        //     [db.Sequelize.fn('sum', db.Sequelize.col('amount')), 'loserTotal'],
+        //   ],
+        //   raw: true,
+        // });
+        high_bet_amount = high_bet_amount[0].high_bet_amount / 10 ** 6;
+        low_bet_amount = low_bet_amount[0].low_bet_amount / 10 ** 6;
         // console.log(winnerTotalAmount, loserTotalAmount);
-        let diffRate = 0;
+        // let diffRate = 0;
 
-        if (!winnerTotalAmount || !loserTotalAmount) {
-          diffRate = 0;
-        } else {
-          diffRate = Number(loserTotalAmount) / Number(winnerTotalAmount);
-        }
-        return { ...v, currentPrice: currentPrice, diffRate: diffRate || 0 };
+        // if (!winnerTotalAmount || !loserTotalAmount) {
+        //   diffRate = 0;
+        // } else {
+        //   diffRate = Number(loserTotalAmount) / Number(winnerTotalAmount);
+        // }
+        return {
+          ...v,
+          high_bet_amount,
+          low_bet_amount,
+          currentPrice: currentPrice,
+        };
       })
     );
-    // console.log(list);
+    // console.log('list', list);
     cb(list);
   });
 };
 
-// {
-//       id: 189549,
-//       createdat: 2022-07-21T06:09:15.000Z,
-//       updatedat: null,
-//       uid: 114,
-//       assetId: 7,
-//       amount: 15,
-//       starting: 1658383740,
-//       expiry: 1658383800,
-//       startingPrice: '0.1',
-//       side: 'HIGH',
-//       type: 'LIVE',
-//       uuid: null,
-//       diffRate: 0.9928909952606635,
-//       asset: { name: 'USD/CAD' },
-//       currentPrice: 0.30465810658179904
-//     },
-//     {
-//       id: 189553,
-//       createdat: 2022-07-21T06:09:15.000Z,
-//       updatedat: null,
-//       uid: 114,
-//       assetId: 8,
-//       amount: 75,
-//       starting: 1658383740,
-//       expiry: 1658383800,
-//       startingPrice: '0.1',
-//       side: 'HIGH',
-//       type: 'LIVE',
-//       uuid: null,
-//       diffRate: 0.9928909952606635,
-//       asset: { name: 'USD/CHF' },
-//       currentPrice: 0.30465810658179904
-//     }
-//   ]
+//  {
+//     id: 423980,
+//     createdat: 2022-07-26T09:07:16.000Z,
+//    updatedat: 2022-07-26T09:07:16.000Z,
+//    uid: 114,
+//    assetId: 1,
+//    amount: 28000000,
+//     starting: 1658826420,
+//    expiry: 1658826480,
+//    startingPrice: '21091.90000',
+//     side: 'HIGH',
+//     type: 'LIVE',
+//     uuid: null,
+//     diffRate: '249.23',
+//     asset: { name: 'Bitcoin', socketAPISymbol: 'BTCUSDT' },
+//    winnerTotalAmount: 929,
+//    loserTotalAmount: 2118,
+//     currentPrice: '21065.30000'
+//   },
 
 /*
 

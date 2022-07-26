@@ -100,7 +100,8 @@ async function createJWT(jfilter) {
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: '24h',
+      expiresIn: '3h',
+      // expiresIn: '24h',
       issuer: 'EXPRESS',
     }
   );
@@ -133,7 +134,7 @@ router.get('/demo/token', async (req, res) => {
     timestampunixexpiry,
   });
   let token = jwt.sign({ type: 'JWT', demo_uuid }, process.env.JWT_SECRET, {
-    expiresIn: '24h',
+    expiresIn: '3h',
     issuer: 'EXPRESS',
   });
   // let ipaddr = requestIp.getClientIp(req).replace('::ffff:', '');
@@ -793,7 +794,6 @@ router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
         let assetName = await db['assets']
           .findOne({ where: { id: assetId }, raw: true })
           .then((resp) => {
-            console.log(resp);
             el['name'] = resp.name;
           });
         return el;
@@ -845,112 +845,135 @@ router.get('/predeposit', auth, async (req, res) => {
     });
 });
 
-router.get('/myreferrals/:uid', async (req, res) => {
-  let { uid } = req.params;
-  let myreferrals = await db['referrals']
-    .findAll({
-      where: { referer_uid: uid },
-      raw: true,
-    })
-    .then(async (resp) => {
-      console.log(resp);
-      let data = [];
-      let promises = resp.map(async (v) => {
-        let { referral_uid, createdat } = v;
-        // let referral_user = await db['users'].findOne({
-        //   where: {id: referral_uid},
-        //   raw: true
-        // })
-        let referral_user = await db['users'].findAll({
-          where: { id: referral_uid },
-          raw: true,
-        });
-        let referral_user_trade_amount = await db['betlogs'].findAll({
-          where: { uid: referral_uid },
+router.get(
+  '/myreferrals/:offset/:limit/:orderkey/:orderval',
+  auth,
+  async (req, res) => {
+    // /:offset/:limit/:orderkey/:orderval
+    let { id } = req.decoded;
+    let { offset, limit, orderkey, orderval } = req.params;
+    offset = +offset;
+    limit = +limit;
 
-          attributes: [
-            [
-              db.Sequelize.fn('SUM', db.Sequelize.col('amount')),
-              'trade_amount',
-            ],
-          ],
-          raw: true,
-        });
-        let referral_user_bet_profit = await db['betlogs'].findAll({
-          where: { uid: referral_uid, status: 1 },
-          attributes: [
-            [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'profit'],
-          ],
-          raw: true,
-        });
-
-        let trade_amount =
-          referral_user_trade_amount[0].trade_amount === null
-            ? 0
-            : referral_user_trade_amount[0].trade_amount;
-        let profit =
-          referral_user_bet_profit[0].profit === null
-            ? 0
-            : referral_user_bet_profit[0].profit;
-        let referral_user_profit_percent = (
-          (profit / trade_amount) *
-          100
-        ).toFixed(2);
-        let profit_percent =
-          referral_user_profit_percent === 'NaN'
-            ? 0
-            : referral_user_profit_percent;
-        data.push({ referral_user, trade_amount, profit, profit_percent });
-      });
-      await Promise.all(promises);
-      respok(res, null, null, { data });
-    });
-});
-
-router.get('/myreferrals/fee/log/:uid', async (req, res) => {
-  let { uid } = req.params;
-  let myreferrals = await db['referrals']
-    .findAll({
-      where: { referer_uid: uid },
-      raw: true,
-    })
-    .then(async (resp) => {
-      console.log(resp);
-      let data = [];
-      let promises = resp.map(async (v) => {
-        let { referral_uid } = v;
-        // let referral_user = await db['users'].findOne({
-        //   where: {id: referral_uid},
-        //   raw: true
-        // })
-        let referral_user_logfee = await db['logfees'].findAll({
-          where: { payer_uid: referral_uid, recipient_uid: uid },
-          raw: true,
-        });
-        let cashback_percent = await db['users']
-          .findOne({
+    let myreferrals = await db['referrals']
+      .findAll({
+        where: { referer_uid: id },
+        order: [[orderkey, orderval]],
+        offset,
+        limit,
+        raw: true,
+      })
+      .then(async (resp) => {
+        console.log(resp);
+        let data = [];
+        let promises = resp.map(async (v) => {
+          let { referral_uid, createdat } = v;
+          // let referral_user = await db['users'].findOne({
+          //   where: {id: referral_uid},
+          //   raw: true
+          // })
+          let referral_user = await db['users'].findAll({
             where: { id: referral_uid },
             raw: true,
-          })
-          .then(async (resp) => {
-            let level = I_LEVEL[resp.level];
-            return await db['feesettings']
-              .findOne({
-                where: { key_: `FEE_TO_REFERER_${level}` },
-                raw: true,
-              })
-              .then((resp) => {
-                return +resp.value_ / 100;
-              });
           });
-        if (referral_user_logfee.length !== 0) {
-          data.push({ referral_user_logfee, cashback_percent });
-        }
+          let referral_user_trade_amount = await db['betlogs'].findAll({
+            where: { uid: referral_uid },
+
+            attributes: [
+              [
+                db.Sequelize.fn('SUM', db.Sequelize.col('amount')),
+                'trade_amount',
+              ],
+            ],
+            raw: true,
+          });
+          let referral_user_bet_profit = await db['betlogs'].findAll({
+            where: { uid: referral_uid, status: 1 },
+            attributes: [
+              [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'profit'],
+            ],
+            raw: true,
+          });
+
+          let trade_amount =
+            referral_user_trade_amount[0].trade_amount === null
+              ? 0
+              : referral_user_trade_amount[0].trade_amount;
+          let profit =
+            referral_user_bet_profit[0].profit === null
+              ? 0
+              : referral_user_bet_profit[0].profit;
+          let referral_user_profit_percent = (
+            (profit / trade_amount) *
+            100
+          ).toFixed(2);
+          let profit_percent =
+            referral_user_profit_percent === 'NaN'
+              ? 0
+              : referral_user_profit_percent;
+          data.push({ referral_user, trade_amount, profit, profit_percent });
+        });
+        await Promise.all(promises);
+        respok(res, null, null, { data });
       });
-      await Promise.all(promises);
-      respok(res, null, null, { data });
-    });
-});
+  }
+);
+
+router.get(
+  // '/myreferrals/fee/log/:offset/:limit/:orderkey/:orderval',
+  '/myreferrals/fee/log/:uid',
+  // auth,
+  async (req, res) => {
+    // let { id } = req.decoded;
+    let { limit, offset, orderkey, orderval, uid } = req.params;
+    offset = +offset;
+    limit = +limit;
+    let myreferrals = await db['referrals']
+      .findAll({
+        where: { referer_uid: uid },
+        // offset,
+        // limit,
+        // order: [[orderkey, orderval]],
+        raw: true,
+      })
+      .then(async (resp) => {
+        console.log(resp);
+        let data = [];
+        let promises = resp.map(async (v) => {
+          let { referral_uid } = v;
+          // let referral_user = await db['users'].findOne({
+          //   where: {id: referral_uid},
+          //   raw: true
+          // })
+          let referral_user_logfee = await db['logfees'].findAll({
+            where: { payer_uid: referral_uid, recipient_uid: uid },
+            raw: true,
+          });
+          let cashback_percent = await db['users']
+            .findOne({
+              where: { id: referral_uid },
+              raw: true,
+            })
+            .then(async (resp) => {
+              let level = I_LEVEL[resp.level];
+              return await db['feesettings']
+                .findOne({
+                  where: { key_: `FEE_TO_REFERER_${level}` },
+                  raw: true,
+                })
+                .then((resp) => {
+                  return +resp.value_ / 100;
+                });
+            });
+          if (referral_user_logfee.length !== 0) {
+            data.push({ referral_user_logfee, cashback_percent });
+          }
+        });
+        await Promise.all(promises);
+        respok(res, null, null, { data });
+      });
+  }
+);
 
 // router.get('/')
 

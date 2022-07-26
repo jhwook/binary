@@ -14,6 +14,7 @@ const {
   ASSETID_REDIS_SYMBOL,
 } = require('../utils/ticker_symbol');
 const cliredisa = require('async-redis').createClient();
+const { calculate_dividendrate } = require('./calculateDividendRate');
 
 cron.schedule('10 * * * * *', async () => {
   console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
@@ -38,117 +39,175 @@ cron.schedule('10 * * * * *', async () => {
       return value_;
     });
 
-  ASSETID_REDIS_SYMBOL.map(async (v, i) => {
-    if (i == 0) {
-      return;
-    }
-    let exists = new Promise(async (resolve, reject) => {
-      await db['bets']
-        .findAll({
-          where: {
-            assetId: i,
-            [Op.or]: [{ starting: timenow.unix() }, { expiry: timenow.unix() }],
-          },
-          raw: true,
-        })
-        .then(async (result) => {
-          if (!result) return;
-          let currentPrice = await cliredisa.hget(
-            'STREAM_ASSET_PRICE_PER_MIN',
-            ASSETID_REDIS_SYMBOL[i]
-          );
+  let assetList = await db['assets']
+    .findAll({
+      where: { active: 1 },
+      raw: true,
+    })
+    .then((resp) => {
+      for (let type = 0; type < 2; type++) {
+        if (type === 0) {
+          type = 'LIVE';
+        } else if (type === 1) {
+          type = 'DEMO';
+        }
+        resp.map(async (v, i) => {
+          let { id, APISymbol } = v;
 
-          if (!currentPrice) {
-            currentPrice = Math.random().toFixed(10);
-          }
+          let exists = new Promise(async (resolve, reject) => {
+            await db['bets']
+              .findAll({
+                where: {
+                  assetId: id,
+                  type,
+                  expiry: timenow.unix(),
+                },
+                raw: true,
+              })
+              .then(async (bets) => {
+                if (!bets) return;
+                let currentPrice = await cliredisa.hget(
+                  'STREAM_ASSET_PRICE_PER_MIN',
+                  APISymbol
+                );
 
-          let status;
-          let sumBetAmount_lose_win = [0, 0];
-          result.map(async (v) => {
-            if (v.starting == timenow.unix()) {
-              await db['bets'].update(
-                { startingPrice: currentPrice },
-                { where: { id: v.id } }
-              );
-            }
-            if (v.expiry == timenow.unix()) {
-              if (v.startingPrice == currentPrice) {
-                status = 2;
-              } else if (v.startingPrice > currentPrice) {
-                //가격이 떨어짐
-                if (v.side.toUpperCase() == 'HIGH') {
-                  status = 0;
-                  sumBetAmount_lose_win[0] += v.amount;
-                } else {
-                  status = 1;
-                  sumBetAmount_lose_win[1] += v.amount;
-                }
-              } else if (v.startingPrice < currentPrice) {
-                if (v.side.toUpperCase() == 'HIGH') {
-                  status = 1;
-                  sumBetAmount_lose_win[1] += v.amount;
-                } else {
-                  status = 0;
-                  sumBetAmount_lose_win[0] += v.amount;
-                }
-              } else {
-                status = 3;
-              }
-              await db['betlogs']
-                .create({
-                  uid: v.uid,
-                  assetId: v.assetId,
-                  amount: v.amount,
-                  starting: v.starting,
-                  expiry: v.expiry,
-                  startingPrice: v.startingPrice,
-                  side: v.side,
-                  type: v.type,
-                  endingPrice: currentPrice,
-                  status: status,
-                  diffRate: v.diffRate,
-                })
-                .then((_) => {
-                  db['bets'].destroy({ where: { id: v.id } });
+                let status;
+                let sumBetAmount_lose_win = [0, 0];
+                let dividendrate_high;
+                let dividendrate_low;
+                let startPrice;
+
+                bets.map(async (v) => {
+                  startPrice = v.startingPrice;
+                  if (v.expiry == timenow.unix()) {
+                    if (v.startingPrice == currentPrice) {
+                      status = 2;
+                    } else if (v.startingPrice > currentPrice) {
+                      //가격이 떨어짐
+                      if (v.side.toUpperCase() == 'HIGH') {
+                        dividendrate_high = v.diffRate;
+                        status = 0;
+                        sumBetAmount_lose_win[0] += v.amount;
+                      } else {
+                        dividendrate_low = v.diffRate;
+                        status = 1;
+                        sumBetAmount_lose_win[1] += v.amount;
+                      }
+                    } else if (v.startingPrice < currentPrice) {
+                      if (v.side.toUpperCase() == 'HIGH') {
+                        status = 1;
+                        sumBetAmount_lose_win[1] += v.amount;
+                      } else {
+                        status = 0;
+                        sumBetAmount_lose_win[0] += v.amount;
+                      }
+                    } else {
+                      status = 3;
+                    }
+                    await db['betlogs']
+                      .create({
+                        uid: v.uid,
+                        assetId: v.assetId,
+                        amount: v.amount,
+                        starting: v.starting,
+                        expiry: v.expiry,
+                        startingPrice: v.startingPrice,
+                        side: v.side,
+                        type: v.type,
+                        endingPrice: currentPrice,
+                        status: status,
+                        diffRate: v.diffRate,
+                      })
+                      .then((_) => {
+                        db['bets'].destroy({ where: { id: v.id } });
+                      });
+                  }
                 });
-            }
+                resolve({
+                  i: i,
+                  now: timenow.unix(),
+                  sumBetAmount_lose_win: sumBetAmount_lose_win,
+                  status,
+                  dividendrate_high,
+                  dividendrate_low,
+                  currentPrice,
+                  startPrice,
+                });
+              });
           });
-          resolve({
-            i: i,
-            now: timenow.unix(),
-            sumBetAmount_lose_win: sumBetAmount_lose_win,
-            status,
+          exists.then((value) => {
+            let {
+              i,
+              now,
+              sumBetAmount_lose_win,
+              status,
+              dividendrate_high,
+              dividendrate_low,
+              currentPrice,
+              startPrice,
+            } = value;
+            movelogrounds(
+              i,
+              now,
+              sumBetAmount_lose_win,
+              dividendrate_high,
+              dividendrate_low,
+              currentPrice,
+              startPrice,
+              type
+            );
+            settlebets(
+              i,
+              now,
+              sumBetAmount_lose_win,
+              FEE_TO_BRANCH,
+              FEE_TO_ADMIN,
+              type,
+              status
+            );
+            // settlebets(
+            //   i,
+            //   now,
+            //   sumBetAmount_lose_win,
+            //   FEE_TO_BRANCH,
+            //   FEE_TO_ADMIN,
+            //   'DEMO',
+            //   status
+            // );
           });
+          // const result = await Promise.all(exists);
+          // console.log(result);
+          if (exists) {
+          } else {
+          }
         });
+      }
     });
-    exists.then((value) => {
-      let { i, now, sumBetAmount_lose_win, status } = value;
-      settlebets(
-        i,
-        now,
-        sumBetAmount_lose_win,
-        FEE_TO_BRANCH,
-        FEE_TO_ADMIN,
-        'LIVE',
-        status
-      );
-      settlebets(
-        i,
-        now,
-        sumBetAmount_lose_win,
-        FEE_TO_BRANCH,
-        FEE_TO_ADMIN,
-        'DEMO',
-        status
-      );
-    });
-    // const result = await Promise.all(exists);
-    // console.log(result);
-    if (exists) {
-    } else {
-    }
-  });
 });
+
+const movelogrounds = async (
+  i,
+  expiry,
+  sumBetAmount_lose_win,
+  dividendrate_high,
+  dividendrate_low,
+  currentPrice,
+  startPrice,
+  type
+) => {
+  await db['logrounds'].create({
+    assetId: i + 1,
+    totalLowAmount: sumBetAmount_lose_win[0],
+    totalHighAmount: sumBetAmount_lose_win[1],
+    expiry,
+    type,
+    lowDiffRate: dividendrate_low,
+    highDiffRate: dividendrate_high,
+    startingPrice: startPrice,
+    endPrice: currentPrice,
+  });
+};
+
 /*
     Status
     0-> 짐

@@ -65,6 +65,14 @@ module.exports = function(sequelize, DataTypes) {
     currentPrice: {
       type: DataTypes.STRING(40),
       allowNull: true
+    },
+    active: {
+      type: DataTypes.INTEGER(4),
+      allowNull: true
+    },
+    socketAPISymbol: {
+      type: DataTypes.STRING(20),
+      allowNull: true
     }
   }, {
     sequelize,
