@@ -14,12 +14,12 @@ module.exports = (io, socket) => {
     let timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
     // console.log('data', socket.handshake.query.list);
     // data = socket.handshake.query.list;
-    let socketdata = {
-      assetList: [1, 2, 3, 4, 5],
-      round: ['2022-07-26 02:18:00', '2022-07-26 05:30:00'],
-      type: 'LIVE',
-    };
-    let { assetList, round, type } = socketdata;
+    // let socketdata = {
+    //   assetList: [1, 2, 3, 4, 5],
+    //   round: ['2022-07-26 02:18:00', '2022-07-26 05:30:00'],
+    //   type: 'LIVE',
+    // };
+    // let { assetList, round, type } = socketdata;
     console.log('data', data);
     if (Array.isArray(data)) {
       let dividendrate = await calculate_dividendrate(

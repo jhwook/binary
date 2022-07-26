@@ -85,6 +85,7 @@ const calculate_dividendrate = async (assetList, type, expiry) => {
 };
 
 const calculatebets = (i, sorted_bets, type) => {
+  let bet_count = 0;
   let low_side_amount = 0;
   let high_side_amount = 0;
   let low_side_dividendrate;
@@ -101,8 +102,10 @@ const calculatebets = (i, sorted_bets, type) => {
       amount = amount / 10 ** 6;
       expiry_ = expiry;
       if (side === 'HIGH') {
+        bet_count++;
         high_side_amount += amount;
       } else if (side === 'LOW') {
+        bet_count++;
         low_side_amount += amount;
       }
     });
@@ -146,6 +149,7 @@ const calculatebets = (i, sorted_bets, type) => {
       low_side_amount,
       high_side_amount,
       dividendrate: { low_side_dividendrate, high_side_dividendrate },
+      bet_count,
     };
     db['bets'].update(
       { diffRate: high_side_dividendrate },
@@ -164,9 +168,44 @@ const calculatebets = (i, sorted_bets, type) => {
   return result;
 };
 
-cron.schedule('0 * * * * *', async () => {
-  let expiry = moment().startOf('minute').unix();
-  LOGGER('@Calculate dividendrates', moment().format('HH:mm:ss', '@binopt'));
+const calculate_dividendrate_sec = async (assetList, type) => {
+  let result = [];
+
+  for (let i = 0; i < assetList.length; i++) {
+    await db['bets']
+      .findAll({
+        where: {
+          assetId: assetList[i],
+          type,
+        },
+        raw: true,
+      })
+      .then(async (resp) => {
+        let sorted_bets = {};
+        resp.map((bet) => {
+          let { expiry } = bet;
+
+          let expiry_date = moment.unix(expiry).format('YYYY-MM-DD HH:mm:ss');
+          if (!sorted_bets[expiry_date]) {
+            sorted_bets[expiry_date] = [bet];
+          } else {
+            sorted_bets[expiry_date].push(bet);
+          }
+        });
+
+        if (Object.keys(sorted_bets).length === 0) {
+          // LOGGER(v, '@no bets');
+        } else {
+          result.push(calculatebets(assetList[i], sorted_bets, type));
+        }
+      });
+  }
+
+  return result;
+};
+
+cron.schedule('* * * * * *', async () => {
+  // LOGGER('@Calculate dividendrates', moment().format('HH:mm:ss', '@binopt'));
   let assetList = await db['assets']
     .findAll({
       where: {
@@ -182,9 +221,11 @@ cron.schedule('0 * * * * *', async () => {
       });
       return result;
     });
-  console.log('assetList', assetList);
-  calculate_dividendrate(assetList, 'LIVE', expiry);
-  calculate_dividendrate(assetList, 'DEMO', expiry);
+  // console.log('assetList', assetList);
+  // calculate_dividendrate(assetList, 'LIVE', expiry);
+  // calculate_dividendrate(assetList, 'DEMO', expiry);
+  calculate_dividendrate_sec(assetList, 'LIVE');
+  calculate_dividendrate_sec(assetList, 'DEMO');
 });
 
 module.exports = { calculate_dividendrate };

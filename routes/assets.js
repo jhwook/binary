@@ -16,7 +16,7 @@ router.get('/', function (req, res, next) {
 });
 
 router.get('/list', softauth, async (req, res) => {
-  let { id } = req.decoded;
+  let id = req.decoded;
   let { group, searchkey, all } = req.query;
   let jfilter = {};
 
@@ -27,45 +27,66 @@ router.get('/list', softauth, async (req, res) => {
   if (searchkey) {
     jfilter = { name: { [Op.like]: `%${searchkey}%` } };
   }
-  console.log(all);
-  if (all) {
-    db['assets']
-      .findAll({
-        where: { ...jfilter },
-        raw: true,
-      })
-      .then(async (resp) => {
-        let promises = resp.map(async (el) => {
-          let { APISymbol } = el;
-          let currentPrice = await cliredisa.hget(
-            'STREAM_ASSET_PRICE',
-            APISymbol
-          );
-          console.log(APISymbol, currentPrice);
-          el['currentPrice'] = currentPrice;
-        });
-        await Promise.all(promises);
-        respok(res, null, null, { resp });
+
+  // if (all !== undefined) {
+  //   db['assets']
+  //     .findAll({
+  //       where: { ...jfilter },
+  //       raw: true,
+  //     })
+  //     .then(async (resp) => {
+  //       let promises = resp.map(async (el) => {
+  //         let { APISymbol } = el;
+  //         let currentPrice = await cliredisa.hget(
+  //           'STREAM_ASSET_PRICE',
+  //           APISymbol
+  //         );
+  //         console.log(APISymbol, currentPrice);
+  //         el['currentPrice'] = currentPrice;
+  //       });
+  //       await Promise.all(promises);
+  //       respok(res, null, null, { resp });
+  //     });
+  // } else {
+  db['assets']
+    .findAll({
+      where: {
+        ...jfilter,
+      },
+      // include: [
+      //   {
+      //     model: db['bookmarks'],
+      //     where: { uid: id || null },
+      //     required: false,
+      //   },
+      // ],
+      raw: true,
+    })
+    // .then((resp) => {
+    //   respok(res, null, null, { resp });
+    // });
+    .then(async (resp) => {
+      let promises = resp.map(async (el) => {
+        console.log(id);
+        let assetId = el.id;
+        await db['bookmarks']
+          .findOne({
+            where: { assetsId: assetId, uid: id },
+            raw: true,
+          })
+          .then((resp) => {
+            console.log(resp);
+            if (!resp) {
+              el['bookmark'] = 0;
+            } else {
+              el['bookmark'] = 1;
+            }
+          });
       });
-  } else {
-    db['assets']
-      .findAll({
-        where: {
-          ...jfilter,
-        },
-        include: [
-          {
-            model: db['bookmarks'],
-            where: { uid: id || null },
-            required: false,
-          },
-        ],
-      })
-      .then((respdata) => {
-        // console.log(jfilter);
-        respok(res, null, null, { respdata });
-      });
-  }
+      await Promise.all(promises);
+      // console.log(jfilter);
+      respok(res, null, null, { resp });
+    });
 });
 
 router.post('/add/:type', (req, res) => {
