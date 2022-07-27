@@ -689,24 +689,46 @@ router.get('/verify/:type/:code', async (req, res) => {
 
 router.get('/balance', auth, async (req, res) => {
   let { type } = req.params;
-  let { id } = req.decoded;
-  db['balances']
-    .findAll({
-      where: {
-        uid: id,
-      },
-    })
-    .then((result) => {
-      let respdata = {};
-      result.map((v) => {
-        respdata[v.typestr] = {
-          total: v.total,
-          avail: v.avail,
-          locked: v.locked,
-        };
+  let id;
+  if (req.decoded.id) {
+    id = req.decoded.id;
+    db['balances']
+      .findAll({
+        where: {
+          uid: id,
+        },
+      })
+      .then((result) => {
+        let respdata = {};
+        result.map((v) => {
+          respdata[v.typestr] = {
+            total: v.total,
+            avail: v.avail,
+            locked: v.locked,
+          };
+        });
+        respok(res, null, null, { respdata });
       });
-      respok(res, null, null, { respdata });
-    });
+  } else {
+    let uuid = req.decoded.demo_uuid;
+    db['balances']
+      .findAll({
+        where: {
+          uuid,
+        },
+      })
+      .then((result) => {
+        let respdata = {};
+        result.map((v) => {
+          respdata[v.typestr] = {
+            total: v.total,
+            avail: v.avail,
+            locked: v.locked,
+          };
+        });
+        respok(res, null, null, { respdata });
+      });
+  }
 });
 
 router.get('/query/:tblname/:offset/:limit', auth, (req, res) => {
@@ -854,9 +876,9 @@ router.get(
     let { offset, limit, orderkey, orderval } = req.params;
     offset = +offset;
     limit = +limit;
-
-    let myreferrals = await db['referrals']
-      .findAll({
+    id = 99;
+    await db['referrals']
+      .findAndCountAll({
         where: { referer_uid: id },
         order: [[orderkey, orderval]],
         offset,
@@ -865,20 +887,16 @@ router.get(
       })
       .then(async (resp) => {
         console.log(resp);
-        let data = [];
-        let promises = resp.map(async (v) => {
+        let { rows, count } = resp;
+        let promises = rows.map(async (v) => {
           let { referral_uid, createdat } = v;
-          // let referral_user = await db['users'].findOne({
-          //   where: {id: referral_uid},
-          //   raw: true
-          // })
-          let referral_user = await db['users'].findAll({
+          let referral_user = await db['users'].findOne({
             where: { id: referral_uid },
             raw: true,
           });
+
           let referral_user_trade_amount = await db['betlogs'].findAll({
             where: { uid: referral_uid },
-
             attributes: [
               [
                 db.Sequelize.fn('SUM', db.Sequelize.col('amount')),
@@ -894,15 +912,31 @@ router.get(
             ],
             raw: true,
           });
+          let received = await db['logfees']
+            .findAll({
+              where: {
+                recipient_uid: id,
+                payer_uid: referral_uid,
+              },
+              raw: true,
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')), 'sum'],
+              ],
+            })
+            .then((resp) => {
+              let [{ sum }] = resp;
+              sum = sum / 10 ** 6;
+              return sum;
+            });
 
           let trade_amount =
             referral_user_trade_amount[0].trade_amount === null
               ? 0
-              : referral_user_trade_amount[0].trade_amount;
+              : referral_user_trade_amount[0].trade_amount / 10 ** 6;
           let profit =
             referral_user_bet_profit[0].profit === null
               ? 0
-              : referral_user_bet_profit[0].profit;
+              : referral_user_bet_profit[0].profit / 10 ** 6;
           let referral_user_profit_percent = (
             (profit / trade_amount) *
             100
@@ -911,67 +945,118 @@ router.get(
             referral_user_profit_percent === 'NaN'
               ? 0
               : referral_user_profit_percent;
-          data.push({ referral_user, trade_amount, profit, profit_percent });
+          v['referral_user'] = referral_user;
+          v['trade_amount'] = trade_amount;
+          v['profit'] = profit;
+          v['profit_percent'] = profit_percent;
+          v['received'] = received.toFixed(2);
         });
         await Promise.all(promises);
-        respok(res, null, null, { data });
+        respok(res, null, null, { resp });
       });
   }
 );
 
 router.get(
-  // '/myreferrals/fee/log/:offset/:limit/:orderkey/:orderval',
-  '/myreferrals/fee/log/:uid',
-  // auth,
+  '/myreferrals/fee/log/:offset/:limit/:orderkey/:orderval',
+  // '/myreferrals/fee/log/:uid',
+  auth,
   async (req, res) => {
-    // let { id } = req.decoded;
-    let { limit, offset, orderkey, orderval, uid } = req.params;
+    let { id } = req.decoded;
+    let { limit, offset, orderkey, orderval } = req.params;
     offset = +offset;
     limit = +limit;
-    let myreferrals = await db['referrals']
-      .findAll({
-        where: { referer_uid: uid },
-        // offset,
-        // limit,
-        // order: [[orderkey, orderval]],
+    id = 99;
+    await db['logfees']
+      .findAndCountAll({
+        where: { recipient_uid: id, typestr: 'FEE_TO_REFERER' },
+        offset,
+        limit,
         raw: true,
       })
       .then(async (resp) => {
-        console.log(resp);
-        let data = [];
-        let promises = resp.map(async (v) => {
-          let { referral_uid } = v;
-          // let referral_user = await db['users'].findOne({
-          //   where: {id: referral_uid},
-          //   raw: true
-          // })
-          let referral_user_logfee = await db['logfees'].findAll({
-            where: { payer_uid: referral_uid, recipient_uid: uid },
-            raw: true,
-          });
-          let cashback_percent = await db['users']
+        let { rows, count } = resp;
+        let promises = rows.map(async (el) => {
+          let { feeamount, betamount, payer_uid } = el;
+          await db['users']
             .findOne({
-              where: { id: referral_uid },
+              where: { id: payer_uid },
+              raw: true,
+            })
+            .then((resp) => {
+              el['payer_info'] = resp;
+            });
+          await db['users']
+            .findOne({
+              where: { id },
               raw: true,
             })
             .then(async (resp) => {
-              let level = I_LEVEL[resp.level];
-              return await db['feesettings']
-                .findOne({
-                  where: { key_: `FEE_TO_REFERER_${level}` },
-                  raw: true,
-                })
-                .then((resp) => {
-                  return +resp.value_ / 100;
-                });
+              let { level } = resp;
+              let { value_ } = await db['feesettings'].findOne({
+                where: { key_: `FEE_TO_REFERER_${I_LEVEL[level]}` },
+                raw: true,
+              });
+              el['profit'] = (feeamount / 10 ** 6 / (value_ / 10000)).toFixed(
+                2
+              );
+              el['cashback_percent'] = value_ / 100;
             });
-          if (referral_user_logfee.length !== 0) {
-            data.push({ referral_user_logfee, cashback_percent });
-          }
+          el['feeamount'] = (feeamount / 10 ** 6).toFixed(2);
+          el['betamount'] = betamount / 10 ** 6;
+
+          return el;
         });
         await Promise.all(promises);
-        respok(res, null, null, { data });
+        respok(res, null, null, { resp });
       });
+    // await db['referrals']
+    //   .findAndCountAll({
+    //     where: { referer_uid: id },
+    //     order: [[orderkey, orderval]],
+    //     raw: true,
+    //   })
+    //   .then(async (resp) => {
+    //     console.log(resp);
+    //     let data = [];
+    //     let promises = resp.rows.map(async (v) => {
+    //       let { referral_uid } = v;
+    //       // let referral_user = await db['users'].findOne({
+    //       //   where: {id: referral_uid},
+    //       //   raw: true
+    //       // })
+    //       let referral_user_logfee = await db['logfees'].findAndCountAll({
+    //         where: { payer_uid: referral_uid, recipient_uid: id },
+    //         offset,
+    //         limit,
+    //         raw: true,
+    //       }).then((resp) => {
+    //         let {rows, count} = resp;
+
+    //       });
+    //       // let cashback_percent = await db['users']
+    //       //   .findOne({
+    //       //     where: { id: referral_uid },
+    //       //     raw: true,
+    //       //   })
+    //       //   .then(async (resp) => {
+    //       //     let level = I_LEVEL[resp.level];
+    //       //     return await db['feesettings']
+    //       //       .findOne({
+    //       //         where: { key_: `FEE_TO_REFERER_${level}` },
+    //       //         raw: true,
+    //       //       })
+    //       //       .then((resp) => {
+    //       //         return +resp.value_ / 100;
+    //       //       });
+    //       //   });
+    //       // if (referral_user_logfee.length !== 0) {
+    //       //   data.push({ referral_user_logfee, cashback_percent });
+    //       // }
+    //     });
+    //     await Promise.all(promises);
+    //     respok(res, null, null, { data });
+    //   });
   }
 );
 

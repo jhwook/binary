@@ -4,18 +4,6 @@ let { Op } = db.Sequelize;
 let moment = require('moment');
 const cliredisa = require('async-redis').createClient();
 
-const ASSETID_REDIS_SYMBOL = [
-  '__SKIPPER__',
-  'btcusdt',
-  'ethusdt',
-  'xrpusdt',
-  'EUR/USD',
-  'USD/JPY',
-  'GBP/USD',
-  'USD/CAD',
-  'USD/CHF',
-];
-
 module.exports = (io, socket) => {
   socket.on('transactions', async (data, cb) => {
     if (!socket.decoded) {

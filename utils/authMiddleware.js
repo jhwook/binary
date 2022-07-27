@@ -33,13 +33,16 @@ exports.auth = (req, res, next) => {
 
 exports.softauth = (req, res, next) => {
   try {
-    let result = jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
+    let result = jwt.verify(
+      req.headers.authorization,
+      process.env.JWT_SECRET,
+      (err, decoded) => {
+        console.log('decoded', decoded);
 
-    if (result) {
-      req.decoded = result.id;
-
-      return next();
-    }
+        req.decoded = decoded;
+        return next();
+      }
+    );
   } catch (error) {
     req.decoded = false;
     return next();
@@ -52,7 +55,10 @@ exports.adminauth = async (req, res, next) => {
     process.env.JWT_SECRET,
     (err, decoded) => {
       if (err) {
-        throw err;
+        return res.status(401).json({
+          code: 401,
+          message: 'No Admin Privileges',
+        });
       }
 
       return decoded;
