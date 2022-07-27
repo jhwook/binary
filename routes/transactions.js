@@ -76,7 +76,7 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
     },
     raw: true,
   });
-  switch (type) {
+  switch (type.toUpperCase()) {
     case 'WITHDRAW':
       console.log(amount);
       console.log(balance);

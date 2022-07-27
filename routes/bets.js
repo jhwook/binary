@@ -29,9 +29,84 @@ router.post(
   auth,
   async (req, res) => {
     //side가 0일 경우 LOW, 1일 경우 HIGH로 취급한다.
-
+    console.log('req.decoded', req.decoded);
     let { assetId, amount, dur, side, type } = req.params;
-    let { id } = req.decoded;
+    let id;
+    if (req.decoded.id) {
+      id = req.decoded.id;
+    }
+    if (req.decoded.demo_uuid) {
+      let demo_uuid = req.decoded.demo_uuid;
+      if (!assetId || !amount) {
+        resperr(res, 'INVALID-DATA');
+        return;
+      }
+      let balance = await db['balances'].findOne({
+        where: { uuid: demo_uuid, typestr: 'DEMO' },
+        raw: true,
+      });
+      console.log(
+        'BIDDED',
+        'DEMO',
+        `${demo_uuid}, ${balance.avail}, ${amount}`
+      );
+      if (Number(balance.avail) < Number(amount)) {
+        resperr(res, 'INSUFICIENT-BALANCE');
+        return;
+      }
+      let starting = moment().add(1, 'minutes').set('second', 0);
+      let expiry = moment()
+        .add(Number(dur) + 1, 'minutes')
+        .set('second', 0);
+      let t = await db.sequelize.transaction();
+      try {
+        let bets = await db['bets'].create(
+          {
+            uuid: demo_uuid,
+            assetId: assetId,
+            amount: amount,
+            starting: starting.unix(),
+            expiry: expiry.unix(),
+            side: side,
+            type: 'DEMO',
+          },
+          {
+            transaction: t,
+          }
+        );
+        await db['balances'].increment(
+          'avail',
+          {
+            by: -1 * amount,
+            where: { typestr: 'DEMO', uuid: demo_uuid, uid: null },
+          },
+          {
+            transaction: t,
+          }
+        );
+        await db['balances'].increment(
+          'locked',
+          { by: amount, where: { typestr: 'DEMO', uuid: demo_uuid } },
+          {
+            transaction: t,
+          }
+        );
+
+        await t.commit();
+
+        respok(res, 'BIDDED', null, {
+          expiry: expiry,
+          starting: starting,
+          betId: bets.id,
+        });
+
+        return;
+      } catch (error) {
+        await t.rollback();
+        resperr(res, 'UNABLE-TO-BID', null, { error });
+        return;
+      }
+    }
     let currentPrice;
     await db['assets']
       .findOne({ where: { active: 1, id: assetId }, raw: true })
@@ -108,79 +183,6 @@ router.post(
     }
   }
 );
-
-router.post('/demobet/:assetId/:amount/:dur/:side', auth, async (req, res) => {
-  //side가 0일 경우 LOW, 1일 경우 HIGH로 취급한다.
-  console.log(req.decoded);
-  let { assetId, amount, dur, side } = req.params;
-  let { demo_uuid } = req.decoded;
-
-  if (!assetId || !amount) {
-    resperr(res, 'INVALID-DATA');
-    return;
-  }
-  let balance = await db['balances'].findOne({
-    where: { uuid: demo_uuid, typestr: 'DEMO' },
-    raw: true,
-  });
-  console.log('BIDDED', 'DEMO', `${demo_uuid}, ${balance.avail}, ${amount}`);
-  if (Number(balance.avail) < Number(amount)) {
-    resperr(res, 'INSUFICIENT-BALANCE');
-    return;
-  }
-  let starting = moment().add(1, 'minutes').set('second', 0);
-  let expiry = moment()
-    .add(Number(dur) + 1, 'minutes')
-    .set('second', 0);
-  let t = await db.sequelize.transaction();
-  try {
-    let bets = await db['bets'].create(
-      {
-        uuid: demo_uuid,
-        assetId: assetId,
-        amount: amount,
-        starting: starting.unix(),
-        expiry: expiry.unix(),
-        side: side,
-        type: 'DEMO',
-      },
-      {
-        transaction: t,
-      }
-    );
-    await db['balances'].increment(
-      'avail',
-      {
-        by: -1 * amount,
-        where: { typestr: 'DEMO', uuid: demo_uuid, uid: null },
-      },
-      {
-        transaction: t,
-      }
-    );
-    await db['balances'].increment(
-      'locked',
-      { by: amount, where: { typestr: 'DEMO', uuid: demo_uuid } },
-      {
-        transaction: t,
-      }
-    );
-
-    await t.commit();
-
-    respok(res, 'BIDDED', null, {
-      expiry: expiry,
-      starting: starting,
-      betId: bets.id,
-    });
-
-    return;
-  } catch (error) {
-    await t.rollback();
-    resperr(res, 'UNABLE-TO-BID', null, { error });
-    return;
-  }
-});
 
 Number.prototype.zeroPad = function (length) {
   length = length || 2;
