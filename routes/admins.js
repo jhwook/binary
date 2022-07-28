@@ -737,15 +737,32 @@ router.get(
         });
       });
     console.log('refererList', refererList);
-    db['transactions'].findAll({
-      where: {
-        ...jfilter,
-        uid: {
-          [Op.in]: refererList,
+    db['transactions']
+      .findAndCountAll({
+        where: {
+          ...jfilter,
+          uid: {
+            [Op.in]: refererList,
+          },
         },
-      },
-      raw: true,
-    });
+        offset,
+        limit,
+        raw: true,
+      })
+      .then(async (resp) => {
+        // console.log(resp);
+        let promises = resp.rows.map(async (el) => {
+          let { uid } = el;
+          el['user_info'] = await db['users'].findOne({
+            where: {
+              id: uid,
+            },
+            raw: true,
+          });
+        });
+        await Promise.all(promises);
+        respok(res, null, null, { resp });
+      });
   }
 );
 // router.get('/referrals/:iswho/:offset/:limit/:orderkey/:orderval', async (req, res) => {

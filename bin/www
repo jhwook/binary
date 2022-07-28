@@ -31,6 +31,17 @@ listener(io);
 /**
  * Normalize a port into a number, string, or false.
  */
+const https=require('https')
+const fs=require('fs')
+const server_https = https
+  .createServer(
+    {
+      key: fs.readFileSync("/etc/nginx/ssl/options1.net/options1.net.key").toString(),
+      cert: fs.readFileSync("/etc/nginx/ssl/options1.net/options1.net.crt").toString(),
+    },
+    app
+  )
+  .listen(TESTPORT + 10);
 
 function normalizePort(val) {
   var port = parseInt(val, 10);

@@ -190,106 +190,216 @@ Number.prototype.zeroPad = function (length) {
 };
 
 router.get('/my/:type', auth, async (req, res) => {
-  let { id } = req.decoded;
+  let id;
   let { type } = req.params;
-  if (type == 'now') {
-    let respdata = await db['bets'].findAll({
-      where: {
-        uid: id,
-      },
-      include: [
-        {
-          model: db['assets'],
-        },
-      ],
-    });
-    respok(res, null, null, { respdata });
-    return;
-  } else if (type == 'history') {
-    let respdata = await db['betlogs']
-      .findAll({
+
+  if (req.decoded.id) {
+    id = req.decoded.id;
+    if (type == 'now') {
+      let respdata = await db['bets'].findAll({
         where: {
           uid: id,
         },
-        attributes: [
-          [
-            db.Sequelize.fn('day', db.Sequelize.col('betlogs.createdat')),
-            'day',
-          ],
-          [
-            db.Sequelize.fn('year', db.Sequelize.col('betlogs.createdat')),
-            'year',
-          ],
-          [
-            db.Sequelize.fn('month', db.Sequelize.col('betlogs.createdat')),
-            'month',
-          ],
-          'uid',
-          'assetId',
-          'amount',
-          'starting',
-          'expiry',
-          'startingPrice',
-          'endingPrice',
-          'side',
-          'type',
-          'status',
-          'diffRate',
-        ],
         include: [
           {
             model: db['assets'],
           },
         ],
-        raw: true,
-        nest: true,
-      })
-      .then(async (respdata) => {
-        respdata.map((el) => {
-          let { assetId, amount, diffRate, status } = el;
-          if (status === 0) {
-            amount = amount / 10 ** 6;
-            let profit_amount = amount.toFixed(2);
-            el['profit_amount'] = -1 * profit_amount;
-            el['profit_percent'] = (
-              -1 *
-              (profit_amount / amount) *
-              100
-            ).toFixed(0);
-          }
-          if (status === 1) {
-            amount = amount / 10 ** 6;
-            let profit_amount = ((amount * diffRate) / 100).toFixed(2);
-            el['profit_amount'] = profit_amount;
-            el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(0);
-          }
-        });
-        let result = respdata.reduce(function (r, a) {
-          //console.log(a)
-          let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
-          r[ynm] = r[ynm] || [];
-          delete a.year;
-          delete a.month;
-          delete a.day;
-          r[ynm].push(a);
-          return r;
-        }, Object.create(null));
-        let final = [];
-        Object.keys(result).forEach((v) => {
-          final.push({
-            time: v,
-            value: result[v].sort((a, b) => {
-              return b.createdat - a.createdat;
-            }),
-          });
-        });
-        respok(res, null, null, { respdata: final });
       });
-    //respok(res, null, null, {respdata});
-    return;
-  } else {
-    resperr(res, 'INVALID-VALUE');
-    return;
+      respok(res, null, null, { respdata });
+      return;
+    } else if (type == 'history') {
+      let respdata = await db['betlogs']
+        .findAll({
+          where: {
+            uid: id,
+          },
+          attributes: [
+            [
+              db.Sequelize.fn('day', db.Sequelize.col('betlogs.createdat')),
+              'day',
+            ],
+            [
+              db.Sequelize.fn('year', db.Sequelize.col('betlogs.createdat')),
+              'year',
+            ],
+            [
+              db.Sequelize.fn('month', db.Sequelize.col('betlogs.createdat')),
+              'month',
+            ],
+            'uid',
+            'assetId',
+            'amount',
+            'starting',
+            'expiry',
+            'startingPrice',
+            'endingPrice',
+            'side',
+            'type',
+            'status',
+            'diffRate',
+          ],
+          include: [
+            {
+              model: db['assets'],
+            },
+          ],
+          raw: true,
+          nest: true,
+        })
+        .then(async (respdata) => {
+          respdata.map((el) => {
+            let { assetId, amount, diffRate, status } = el;
+            if (status === 0) {
+              amount = amount / 10 ** 6;
+              let profit_amount = amount.toFixed(2);
+              el['profit_amount'] = -1 * profit_amount;
+              el['profit_percent'] = (
+                -1 *
+                (profit_amount / amount) *
+                100
+              ).toFixed(0);
+            }
+            if (status === 1) {
+              amount = amount / 10 ** 6;
+              let profit_amount = ((amount * diffRate) / 100).toFixed(2);
+              el['profit_amount'] = profit_amount;
+              el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(
+                0
+              );
+            }
+          });
+          let result = respdata.reduce(function (r, a) {
+            //console.log(a)
+            let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
+            r[ynm] = r[ynm] || [];
+            delete a.year;
+            delete a.month;
+            delete a.day;
+            r[ynm].push(a);
+            return r;
+          }, Object.create(null));
+          let final = [];
+          Object.keys(result).forEach((v) => {
+            final.push({
+              time: v,
+              value: result[v].sort((a, b) => {
+                return b.createdat - a.createdat;
+              }),
+            });
+          });
+          respok(res, null, null, { respdata: final });
+        });
+      //respok(res, null, null, {respdata});
+      return;
+    } else {
+      resperr(res, 'INVALID-VALUE');
+      return;
+    }
+  }
+  if (req.decoded.demo_uuid) {
+    let demo_uuid = req.decoded.demo_uuid;
+    if (type == 'now') {
+      let respdata = await db['bets'].findAll({
+        where: {
+          uuid: demo_uuid,
+        },
+        include: [
+          {
+            model: db['assets'],
+          },
+        ],
+      });
+      respok(res, null, null, { respdata });
+      return;
+    } else if (type == 'history') {
+      let respdata = await db['betlogs']
+        .findAll({
+          where: {
+            uuid: demo_uuid,
+          },
+          attributes: [
+            [
+              db.Sequelize.fn('day', db.Sequelize.col('betlogs.createdat')),
+              'day',
+            ],
+            [
+              db.Sequelize.fn('year', db.Sequelize.col('betlogs.createdat')),
+              'year',
+            ],
+            [
+              db.Sequelize.fn('month', db.Sequelize.col('betlogs.createdat')),
+              'month',
+            ],
+            'uid',
+            'assetId',
+            'amount',
+            'starting',
+            'expiry',
+            'startingPrice',
+            'endingPrice',
+            'side',
+            'type',
+            'status',
+            'diffRate',
+          ],
+          include: [
+            {
+              model: db['assets'],
+            },
+          ],
+          raw: true,
+          nest: true,
+        })
+        .then(async (respdata) => {
+          respdata.map((el) => {
+            let { assetId, amount, diffRate, status } = el;
+            if (status === 0) {
+              amount = amount / 10 ** 6;
+              let profit_amount = amount.toFixed(2);
+              el['profit_amount'] = -1 * profit_amount;
+              el['profit_percent'] = (
+                -1 *
+                (profit_amount / amount) *
+                100
+              ).toFixed(0);
+            }
+            if (status === 1) {
+              amount = amount / 10 ** 6;
+              let profit_amount = ((amount * diffRate) / 100).toFixed(2);
+              el['profit_amount'] = profit_amount;
+              el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(
+                0
+              );
+            }
+          });
+          let result = respdata.reduce(function (r, a) {
+            //console.log(a)
+            let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
+            r[ynm] = r[ynm] || [];
+            delete a.year;
+            delete a.month;
+            delete a.day;
+            r[ynm].push(a);
+            return r;
+          }, Object.create(null));
+          let final = [];
+          Object.keys(result).forEach((v) => {
+            final.push({
+              time: v,
+              value: result[v].sort((a, b) => {
+                return b.createdat - a.createdat;
+              }),
+            });
+          });
+          respok(res, null, null, { respdata: final });
+        });
+      //respok(res, null, null, {respdata});
+      return;
+    } else {
+      resperr(res, 'INVALID-VALUE');
+      return;
+    }
   }
 });
 

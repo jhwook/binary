@@ -10,26 +10,34 @@ const { upload } = require('../utils/multer');
 const WEB_URL = 'https://options1.net/resource';
 
 // 이미지 업로드
-router.post('/enroll', upload.single('img'), async (req, res) => {
-  const imgfile = req.file;
-  let { type, title, external_link } = req.body;
-  console.log(req.file);
-  if (imgfile) {
-  } else {
-    resperr(res, '');
-    return;
+router.post(
+  '/enroll',
+  upload.fields([{ name: 'pc' }, { name: 'mobile' }]),
+  async (req, res) => {
+    const { pc, mobile } = req.files;
+    console.log(pc[0], mobile[0]);
+    const imgfile = req.file;
+    let { type, title, external_link } = req.body;
+    console.log(req.files);
+    if (imgfile) {
+    } else {
+      resperr(res, '');
+      return;
+    }
+    db['banners']
+      .create({
+        pc_imageurl: `${WEB_URL}/banners/${pc[0].filename}`,
+        mobile_imageurl: `${WEB_URL}/banners/${mobile[0].filename}`,
+        type,
+        title,
+        external_link,
+      })
+      .then((_) => {
+        respok(res, 'OK');
+      });
+    respok(res, null, null, { resp: req.files });
   }
-  db['banners']
-    .create({
-      imageurl: `${WEB_URL}/banners/${imgfile.filename}`,
-      type,
-      title,
-      external_link,
-    })
-    .then((_) => {
-      respok(res, 'OK');
-    });
-});
+);
 
 // //edit banner pic
 // router.put('/edit_banner_pic', upload.single('img'), async (req, res) => {
@@ -111,9 +119,13 @@ module.exports = router;
 //   `updatedat` datetime DEFAULT NULL ON UPDATE current_timestamp(),
 //   `type` varchar(80) DEFAULT NULL,
 //   `title` varchar(200) DEFAULT NULL,
+//   `writer_uid` varchar(200) DEFAULT NULL,
 //   `description` varchar(300) DEFAULT NULL,
-//   `imageurl` varchar(300) DEFAULT NULL,
+//   `pc_imageurl` varchar(300) DEFAULT NULL,
+//   `mobile_imageurl` varchar(300) DEFAULT NULL,
 //   `active` int(11) DEFAULT 0,
+//   `exposure` int(11) DEFAULT 0,
+//   `status` int(11) DEFAULT 0,
 //   `isBanner` int(11) DEFAULT 1,
 //   `external_link` varchar(200) DEFAULT NULL,
 //   PRIMARY KEY (`id`)

@@ -75,7 +75,7 @@ const betbot = async () => {
   // }
 };
 
-cron.schedule('15 */30 * * * *', async () => {
+cron.schedule('15 * * * * *', async () => {
   let timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
   console.log('@betting_bot', timenow_unix);
   betbot();

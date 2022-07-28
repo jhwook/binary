@@ -28,6 +28,43 @@ router.get('/list', softauth, async (req, res) => {
   console.log('jfilter', jfilter);
   if (req.decoded.id) {
     id = req.decoded.id;
+    db['assets']
+      .findAll({
+        where: {
+          ...jfilter,
+        },
+        // include: [
+        //   {
+        //     model: db['bookmarks'],
+        //     where: { uid: id || null },
+        //     required: false,
+        //   },
+        // ],
+        raw: true,
+      })
+      // .then((resp) => {
+      //   respok(res, null, null, { resp });
+      // });
+      .then(async (resp) => {
+        let promises = resp.map(async (el) => {
+          let assetId = el.id;
+          await db['bookmarks']
+            .findOne({
+              where: { assetsId: assetId, uid: id },
+              raw: true,
+            })
+            .then((resp) => {
+              if (!resp) {
+                el['bookmark'] = 0;
+              } else {
+                el['bookmark'] = 1;
+              }
+            });
+        });
+        await Promise.all(promises);
+        // console.log(jfilter);
+        respok(res, null, null, { resp });
+      });
   } else {
     db['assets']
       .findAll({
@@ -51,44 +88,6 @@ router.get('/list', softauth, async (req, res) => {
         respok(res, null, null, { resp });
       });
   }
-
-  db['assets']
-    .findAll({
-      where: {
-        ...jfilter,
-      },
-      // include: [
-      //   {
-      //     model: db['bookmarks'],
-      //     where: { uid: id || null },
-      //     required: false,
-      //   },
-      // ],
-      raw: true,
-    })
-    // .then((resp) => {
-    //   respok(res, null, null, { resp });
-    // });
-    .then(async (resp) => {
-      let promises = resp.map(async (el) => {
-        let assetId = el.id;
-        await db['bookmarks']
-          .findOne({
-            where: { assetsId: assetId, uid: id },
-            raw: true,
-          })
-          .then((resp) => {
-            if (!resp) {
-              el['bookmark'] = 0;
-            } else {
-              el['bookmark'] = 1;
-            }
-          });
-      });
-      await Promise.all(promises);
-      // console.log(jfilter);
-      respok(res, null, null, { resp });
-    });
 });
 
 router.post('/add/:type', (req, res) => {
