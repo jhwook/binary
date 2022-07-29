@@ -16,8 +16,20 @@ const {
 const cliredisa = require('async-redis').createClient();
 const { calculate_dividendrate } = require('./calculateDividendRate');
 
-cron.schedule('10 * * * * *', async () => {
-  console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
+const socketMessage = (io, socket) => {
+  console.log('socketid', socket.id);
+  console.log('socket.decoded', socket.decoded);
+  cron.schedule('10 * * * * *', async () => {
+    console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
+    closeBet(io, socket);
+  });
+};
+
+module.exports = (io, socket) => {
+  socketMessage(io, socket);
+};
+
+const closeBet = async (io, socket) => {
   const timenow = moment().startOf('minute');
   console.log(timenow.unix());
   let FEE_TO_BRANCH = await db['feesettings']
@@ -52,14 +64,14 @@ cron.schedule('10 * * * * *', async () => {
           type = 'DEMO';
         }
         resp.map(async (v, i) => {
-          let { id, APISymbol } = v;
+          let { id, APISymbol, name } = v;
 
           let exists = new Promise(async (resolve, reject) => {
             await db['bets']
               .findAll({
                 where: {
                   assetId: id,
-                  type,
+                  // type,
                   expiry: timenow.unix(),
                 },
                 raw: true,
@@ -104,23 +116,141 @@ cron.schedule('10 * * * * *', async () => {
                     } else {
                       status = 3;
                     }
-                    await db['betlogs']
-                      .create({
-                        uid: v.uid,
-                        assetId: v.assetId,
-                        amount: v.amount,
-                        starting: v.starting,
-                        expiry: v.expiry,
-                        startingPrice: v.startingPrice,
-                        side: v.side,
-                        type: v.type,
-                        endingPrice: currentPrice,
-                        status: status,
-                        diffRate: v.diffRate,
-                      })
-                      .then((_) => {
-                        db['bets'].destroy({ where: { id: v.id } });
-                      });
+
+                    if (v.type === 'LIVE') {
+                      await db['betlogs']
+                        .create({
+                          uid: v.uid,
+                          assetId: v.assetId,
+                          amount: v.amount,
+                          starting: v.starting,
+                          expiry: v.expiry,
+                          startingPrice: v.startingPrice,
+                          side: v.side,
+                          type: v.type,
+                          endingPrice: currentPrice,
+                          status: status,
+                          diffRate: v.diffRate,
+                        })
+                        .then(async (resp) => {
+                          //latvUpvS09bwoh3jAAAF
+
+                          // if (socket.decoded) {
+                          // let { id } = socket.decoded;
+                          // if (id) {
+                          //   console.log('id', v.assetId, id);
+
+                          //   console.log('usersocketid', id, usersocketid);
+                          //   if (v.uid === id) {
+                          //     // console.log(socket.id, resp.dataValues);
+                          //     socket
+                          //       .to(usersocketid)
+                          //       .emit('bet_closed', resp.dataValues);
+                          //   }
+                          // }
+
+                          let profit;
+                          if (status === 1) {
+                            if (v.diffRate === 0) {
+                              profit = v.amount / 10 ** 6;
+                            } else {
+                              profit = (
+                                (v.amount / 10 ** 6) *
+                                v.diffRate
+                              ).toFixed(2);
+                            }
+                          }
+                          if (status === 0) {
+                            profit = (-1 * v.amount) / 10 ** 6;
+                          }
+
+                          let usersocketid = await cliredisa.hget(
+                            'USERNAME2SOCKID',
+                            v.uid
+                          );
+                          let socketData = {
+                            name: name,
+                            profit: profit,
+                            data: resp.dataValues,
+                          };
+
+                          socket
+                            .to(usersocketid)
+                            .emit('bet_closed', socketData);
+                          // }
+
+                          // console.log(resp.dataValues);
+                          db['bets'].destroy({ where: { id: v.id } });
+                        });
+                    } else if (v.type === 'DEMO') {
+                      console.log(
+                        '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@',
+                        v.uuid
+                      );
+                      if (v.uid) {
+                        await db['betlogs']
+                          .create({
+                            uid: v.uid,
+                            assetId: v.assetId,
+                            amount: v.amount,
+                            starting: v.starting,
+                            expiry: v.expiry,
+                            startingPrice: v.startingPrice,
+                            side: v.side,
+                            type: v.type,
+                            endingPrice: currentPrice,
+                            status: status,
+                            diffRate: v.diffRate,
+                          })
+                          .then(async (resp) => {
+                            // if (socket.decoded) {
+                            //   let { demo_uuid } = socket.decoded;
+                            //   if (v.uuid === demo_uuid) {
+                            //     socket
+                            //       .to(socket.id)
+                            //       .emit('bet_closed', resp.dataValues);
+                            //   }
+                            // }
+                            let usersocketid = await cliredisa.hget(
+                              'USERNAME2SOCKID',
+                              v.uid
+                            );
+                            socket
+                              .to(usersocketid)
+                              .emit('bet_closed', resp.dataValues);
+                            // }
+
+                            db['bets'].destroy({ where: { id: v.id } });
+                          });
+                      }
+                      if (v.uuid) {
+                        await db['betlogs']
+                          .create({
+                            uuid: v.uuid,
+                            assetId: v.assetId,
+                            amount: v.amount,
+                            starting: v.starting,
+                            expiry: v.expiry,
+                            startingPrice: v.startingPrice,
+                            side: v.side,
+                            type: v.type,
+                            endingPrice: currentPrice,
+                            status: status,
+                            diffRate: v.diffRate,
+                          })
+                          .then(async (resp) => {
+                            let usersocketid = await cliredisa.hget(
+                              'USERNAME2SOCKID',
+                              v.uuid
+                            );
+                            socket
+                              .to(usersocketid)
+                              .emit('bet_closed', resp.dataValues);
+                            // }
+                            db['bets'].destroy({ where: { id: v.id } });
+                          });
+                      }
+                    }
                   }
                 });
                 resolve({
@@ -183,7 +313,7 @@ cron.schedule('10 * * * * *', async () => {
         });
       }
     });
-});
+};
 
 const movelogrounds = async (
   i,
@@ -274,7 +404,10 @@ const settlebets = async (
             losers.map(async (v) => {
               await db['balances'].increment(
                 ['total', 'locked'],
-                { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } }
+                {
+                  by: -1 * v.amount,
+                  where: { uid: v.uid, typestr: v.type },
+                }
                 // {
                 //   transaction: t,
                 // }
@@ -313,7 +446,10 @@ const settlebets = async (
                   if (resp) {
                     let winner_referer_uid = resp.referer_uid;
                     await db['users']
-                      .findOne({ where: { id: winner_referer_uid }, raw: true })
+                      .findOne({
+                        where: { id: winner_referer_uid },
+                        raw: true,
+                      })
                       .then(async (resp) => {
                         let referer_level = resp.level;
                         let referer_fee_type = `FEE_TO_REFERER_${I_LEVEL[referer_level]}`;
@@ -353,7 +489,10 @@ const settlebets = async (
                           ['total', 'avail'],
                           {
                             by: fee_to_referer,
-                            where: { uid: winner_referer_uid, typestr: v.type },
+                            where: {
+                              uid: winner_referer_uid,
+                              typestr: v.type,
+                            },
                           }
                           // {
                           //   transaction: t,
@@ -431,7 +570,10 @@ const settlebets = async (
               // update winner's balance
               await db['balances'].increment(
                 'locked',
-                { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } }
+                {
+                  by: -1 * v.amount,
+                  where: { uid: v.uid, typestr: v.type },
+                }
                 // {
                 //   transaction: t,
                 // }
@@ -481,7 +623,10 @@ const settlebets = async (
             losers.map(async (v) => {
               await db['balances'].increment(
                 ['total', 'locked'],
-                { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } }
+                {
+                  by: -1 * v.amount,
+                  where: { uid: v.uid, typestr: v.type },
+                }
                 // {
                 //   transaction: t,
                 // }
@@ -509,7 +654,10 @@ const settlebets = async (
               // update winner's balance
               await db['balances'].increment(
                 'locked',
-                { by: -1 * v.amount, where: { uid: v.uid, typestr: v.type } }
+                {
+                  by: -1 * v.amount,
+                  where: { uid: v.uid, typestr: v.type },
+                }
                 // {
                 //   transaction: t,
                 // }

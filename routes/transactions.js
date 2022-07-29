@@ -238,8 +238,16 @@ router.patch('/branch/transfer', auth, async (req, res) => {
         { txhash, verifier: id },
         { where: { id: txId } }
       );
+        let tx = await db['transactions'].findOne({where:{txhash}});
+        tx
+        .update({
+            status: 1
+        });
+        await db['balances'].increment(['avail', 'total'], {by: amount, where:{uid: tx.uid, typestr: "LIVE"}})
+    
       respok(res, 'SUBMITTED');
-      closeTx({ txhash, type: 'TRANSFER', tokentype: tokentype, txId, amount });
+      //closeTx({ txhash, type: 'TRANSFER', tokentype: tokentype, txId, amount: amount*(10**6) });
+      
     } else {
     }
   } else {

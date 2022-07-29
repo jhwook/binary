@@ -9,6 +9,7 @@ const { lookup } = require('geoip-lite');
 var moment = require('moment');
 const e = require('express');
 const LOGGER = console.log;
+let { Op } = db.Sequelize;
 const cliredisa = require('async-redis').createClient();
 const { ASSETID_REDIS_SYMBOL } = require('../utils/ticker_symbol');
 // const ASSETID_REDIS_SYMBOL = [
@@ -31,10 +32,85 @@ router.post(
     //side가 0일 경우 LOW, 1일 경우 HIGH로 취급한다.
     console.log('req.decoded', req.decoded);
     let { assetId, amount, dur, side, type } = req.params;
+    if (!assetId || !amount || !type) {
+      resperr(res, 'INVALID-DATA');
+      return;
+    }
     let id;
+    let currentPrice;
+    await db['assets']
+      .findOne({ where: { active: 1, id: assetId }, raw: true })
+      .then(async (resp) => {
+        let { APISymbol } = resp;
+        currentPrice = await cliredisa.hget(
+          'STREAM_ASSET_PRICE_PER_MIN',
+          APISymbol
+        );
+      });
+    ///////////////////////////////////////////////////////////
     if (req.decoded.id) {
       id = req.decoded.id;
+      let balance = await db['balances'].findOne({
+        where: { uid: id, typestr: type },
+        raw: true,
+      });
+      console.log('BIDDED', type, `${id}, ${balance.avail}, ${amount}`);
+      if (Number(balance.avail) < Number(amount)) {
+        resperr(res, 'INSUFICIENT-BALANCE');
+        return;
+      }
+      let starting = moment().add(1, 'minutes').set('second', 0);
+      let expiry = moment()
+        .add(Number(dur) + 1, 'minutes')
+        .set('second', 0);
+      let t = await db.sequelize.transaction();
+      try {
+        let bets = await db['bets'].create(
+          {
+            uid: id,
+            assetId: assetId,
+            amount: amount,
+            starting: starting.unix(),
+            expiry: expiry.unix(),
+            side: side,
+            type: type,
+            startingPrice: currentPrice,
+          },
+          {
+            transaction: t,
+          }
+        );
+        await db['balances'].increment(
+          'avail',
+          { by: -1 * amount, where: { typestr: type, uid: id } },
+          {
+            transaction: t,
+          }
+        );
+        await db['balances'].increment(
+          'locked',
+          { by: amount, where: { typestr: type, uid: id } },
+          {
+            transaction: t,
+          }
+        );
+
+        await t.commit();
+
+        respok(res, 'BIDDED', null, {
+          expiry: expiry,
+          starting: starting,
+          betId: bets.id,
+        });
+
+        return;
+      } catch (error) {
+        await t.rollback();
+        resperr(res, 'UNABLE-TO-BID', null, { error });
+        return;
+      }
     }
+    ///////////////////////////////////////////////////////////
     if (req.decoded.demo_uuid) {
       let demo_uuid = req.decoded.demo_uuid;
       if (!assetId || !amount) {
@@ -60,20 +136,25 @@ router.post(
         .set('second', 0);
       let t = await db.sequelize.transaction();
       try {
-        let bets = await db['bets'].create(
-          {
-            uuid: demo_uuid,
-            assetId: assetId,
-            amount: amount,
-            starting: starting.unix(),
-            expiry: expiry.unix(),
-            side: side,
-            type: 'DEMO',
-          },
-          {
-            transaction: t,
-          }
-        );
+        let bets = await db['bets']
+          .create(
+            {
+              uuid: demo_uuid,
+              assetId: assetId,
+              amount: amount,
+              starting: starting.unix(),
+              expiry: expiry.unix(),
+              side: side,
+              type: 'DEMO',
+              startingPrice: currentPrice,
+            },
+            {
+              transaction: t,
+            }
+          )
+          .then((resp) => {
+            console.log(resp);
+          });
         await db['balances'].increment(
           'avail',
           {
@@ -107,80 +188,6 @@ router.post(
         return;
       }
     }
-    let currentPrice;
-    await db['assets']
-      .findOne({ where: { active: 1, id: assetId }, raw: true })
-      .then(async (resp) => {
-        let { APISymbol } = resp;
-        currentPrice = await cliredisa.hget(
-          'STREAM_ASSET_PRICE_PER_MIN',
-          APISymbol
-        );
-      });
-
-    if (!assetId || !amount || !type) {
-      resperr(res, 'INVALID-DATA');
-      return;
-    }
-    let balance = await db['balances'].findOne({
-      where: { uid: id, typestr: type },
-      raw: true,
-    });
-    console.log('BIDDED', type, `${id}, ${balance.avail}, ${amount}`);
-    if (Number(balance.avail) < Number(amount)) {
-      resperr(res, 'INSUFICIENT-BALANCE');
-      return;
-    }
-    let starting = moment().add(1, 'minutes').set('second', 0);
-    let expiry = moment()
-      .add(Number(dur) + 1, 'minutes')
-      .set('second', 0);
-    let t = await db.sequelize.transaction();
-    try {
-      let bets = await db['bets'].create(
-        {
-          uid: id,
-          assetId: assetId,
-          amount: amount,
-          starting: starting.unix(),
-          expiry: expiry.unix(),
-          side: side,
-          type: type,
-          startingPrice: currentPrice,
-        },
-        {
-          transaction: t,
-        }
-      );
-      await db['balances'].increment(
-        'avail',
-        { by: -1 * amount, where: { typestr: type, uid: id } },
-        {
-          transaction: t,
-        }
-      );
-      await db['balances'].increment(
-        'locked',
-        { by: amount, where: { typestr: type, uid: id } },
-        {
-          transaction: t,
-        }
-      );
-
-      await t.commit();
-
-      respok(res, 'BIDDED', null, {
-        expiry: expiry,
-        starting: starting,
-        betId: bets.id,
-      });
-
-      return;
-    } catch (error) {
-      await t.rollback();
-      resperr(res, 'UNABLE-TO-BID', null, { error });
-      return;
-    }
   }
 );
 
@@ -190,106 +197,246 @@ Number.prototype.zeroPad = function (length) {
 };
 
 router.get('/my/:type', auth, async (req, res) => {
-  let { id } = req.decoded;
+  let id;
   let { type } = req.params;
-  if (type == 'now') {
-    let respdata = await db['bets'].findAll({
-      where: {
-        uid: id,
-      },
-      include: [
-        {
-          model: db['assets'],
-        },
-      ],
-    });
-    respok(res, null, null, { respdata });
-    return;
-  } else if (type == 'history') {
-    let respdata = await db['betlogs']
-      .findAll({
+
+  if (req.decoded.id) {
+    id = req.decoded.id;
+    if (type == 'now') {
+      let respdata = await db['bets'].findAll({
         where: {
           uid: id,
         },
-        attributes: [
-          [
-            db.Sequelize.fn('day', db.Sequelize.col('betlogs.createdat')),
-            'day',
-          ],
-          [
-            db.Sequelize.fn('year', db.Sequelize.col('betlogs.createdat')),
-            'year',
-          ],
-          [
-            db.Sequelize.fn('month', db.Sequelize.col('betlogs.createdat')),
-            'month',
-          ],
-          'uid',
-          'assetId',
-          'amount',
-          'starting',
-          'expiry',
-          'startingPrice',
-          'endingPrice',
-          'side',
-          'type',
-          'status',
-          'diffRate',
-        ],
         include: [
           {
             model: db['assets'],
           },
         ],
-        raw: true,
-        nest: true,
-      })
-      .then(async (respdata) => {
-        respdata.map((el) => {
-          let { assetId, amount, diffRate, status } = el;
-          if (status === 0) {
-            amount = amount / 10 ** 6;
-            let profit_amount = amount.toFixed(2);
-            el['profit_amount'] = -1 * profit_amount;
-            el['profit_percent'] = (
-              -1 *
-              (profit_amount / amount) *
-              100
-            ).toFixed(0);
-          }
-          if (status === 1) {
-            amount = amount / 10 ** 6;
-            let profit_amount = ((amount * diffRate) / 100).toFixed(2);
-            el['profit_amount'] = profit_amount;
-            el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(0);
-          }
-        });
-        let result = respdata.reduce(function (r, a) {
-          //console.log(a)
-          let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
-          r[ynm] = r[ynm] || [];
-          delete a.year;
-          delete a.month;
-          delete a.day;
-          r[ynm].push(a);
-          return r;
-        }, Object.create(null));
-        let final = [];
-        Object.keys(result).forEach((v) => {
-          final.push({
-            time: v,
-            value: result[v].sort((a, b) => {
-              return b.createdat - a.createdat;
-            }),
-          });
-        });
-        respok(res, null, null, { respdata: final });
       });
-    //respok(res, null, null, {respdata});
-    return;
-  } else {
-    resperr(res, 'INVALID-VALUE');
-    return;
+      respok(res, null, null, { respdata });
+      return;
+    } else if (type == 'history') {
+      let respdata = await db['betlogs']
+        .findAll({
+          where: {
+            uid: id,
+          },
+          attributes: [
+            [
+              db.Sequelize.fn('day', db.Sequelize.col('betlogs.createdat')),
+              'day',
+            ],
+            [
+              db.Sequelize.fn('year', db.Sequelize.col('betlogs.createdat')),
+              'year',
+            ],
+            [
+              db.Sequelize.fn('month', db.Sequelize.col('betlogs.createdat')),
+              'month',
+            ],
+            'uid',
+            'assetId',
+            'amount',
+            'starting',
+            'expiry',
+            'startingPrice',
+            'endingPrice',
+            'side',
+            'type',
+            'status',
+            'diffRate',
+          ],
+          include: [
+            {
+              model: db['assets'],
+            },
+          ],
+          order: [['id', 'DESC']],
+          raw: true,
+          nest: true,
+        })
+        .then(async (respdata) => {
+          let promises = respdata.map(async (el) => {
+            let { assetId, amount, diffRate, status, expiry } = el;
+            if (status === 0) {
+              amount = amount / 10 ** 6;
+              let profit_amount = amount.toFixed(2);
+              el['profit_amount'] = -1 * profit_amount;
+              el['profit_percent'] = (
+                -1 *
+                (profit_amount / amount) *
+                100
+              ).toFixed(0);
+            }
+            if (status === 1) {
+              amount = amount / 10 ** 6;
+              let profit_amount = ((amount * diffRate) / 100).toFixed(2);
+              el['profit_amount'] = profit_amount;
+              el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(
+                0
+              );
+            }
+            await db['tickers']
+              .findOne({
+                where: {
+                  assetId,
+                  expiryTime: { [Op.gte]: expiry - 2, [Op.lte]: expiry + 62 },
+                },
+                raw: true,
+              })
+              .then((resp) => {
+                if (resp) {
+                  el['periodData'] = resp.periodPrice;
+                }
+              });
+          });
+          await Promise.all(promises);
+          let result = respdata.reduce(function (r, a) {
+            //console.log(a)
+            let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
+            r[ynm] = r[ynm] || [];
+            delete a.year;
+            delete a.month;
+            delete a.day;
+            r[ynm].push(a);
+            return r;
+          }, Object.create(null));
+          let final = [];
+          Object.keys(result).forEach((v) => {
+            final.push({
+              time: v,
+              value: result[v].sort((a, b) => {
+                return b.createdat - a.createdat;
+              }),
+            });
+          });
+          respok(res, null, null, { respdata: final });
+        });
+      //respok(res, null, null, {respdata});
+      return;
+    } else {
+      resperr(res, 'INVALID-VALUE');
+      return;
+    }
+  }
+  if (req.decoded.demo_uuid) {
+    let demo_uuid = req.decoded.demo_uuid;
+    if (type == 'now') {
+      let respdata = await db['bets'].findAll({
+        where: {
+          uuid: demo_uuid,
+        },
+        include: [
+          {
+            model: db['assets'],
+          },
+        ],
+      });
+      respok(res, null, null, { respdata });
+      return;
+    } else if (type == 'history') {
+      let respdata = await db['betlogs']
+        .findAll({
+          where: {
+            uid: id,
+          },
+          attributes: [
+            [
+              db.Sequelize.fn('day', db.Sequelize.col('betlogs.createdat')),
+              'day',
+            ],
+            [
+              db.Sequelize.fn('year', db.Sequelize.col('betlogs.createdat')),
+              'year',
+            ],
+            [
+              db.Sequelize.fn('month', db.Sequelize.col('betlogs.createdat')),
+              'month',
+            ],
+            'uid',
+            'assetId',
+            'amount',
+            'starting',
+            'expiry',
+            'startingPrice',
+            'endingPrice',
+            'side',
+            'type',
+            'status',
+            'diffRate',
+          ],
+          include: [
+            {
+              model: db['assets'],
+            },
+          ],
+          order: [['id', 'DESC']],
+          raw: true,
+          nest: true,
+        })
+        .then(async (respdata) => {
+          let promises = respdata.map(async (el) => {
+            let { assetId, amount, diffRate, status, expiry } = el;
+            if (status === 0) {
+              amount = amount / 10 ** 6;
+              let profit_amount = amount.toFixed(2);
+              el['profit_amount'] = -1 * profit_amount;
+              el['profit_percent'] = (
+                -1 *
+                (profit_amount / amount) *
+                100
+              ).toFixed(0);
+            }
+            if (status === 1) {
+              amount = amount / 10 ** 6;
+              let profit_amount = ((amount * diffRate) / 100).toFixed(2);
+              el['profit_amount'] = profit_amount;
+              el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(
+                0
+              );
+            }
+            await db['tickers']
+              .findOne({
+                where: {
+                  assetId,
+                  expiryTime: { [Op.gte]: expiry - 2, [Op.lte]: expiry + 62 },
+                },
+                raw: true,
+              })
+              .then((resp) => {
+                if (resp) {
+                  el['periodData'] = resp.periodPrice;
+                }
+              });
+          });
+          await Promise.all(promises);
+          let result = respdata.reduce(function (r, a) {
+            //console.log(a)
+            let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
+            r[ynm] = r[ynm] || [];
+            delete a.year;
+            delete a.month;
+            delete a.day;
+            r[ynm].push(a);
+            return r;
+          }, Object.create(null));
+          let final = [];
+          Object.keys(result).forEach((v) => {
+            final.push({
+              time: v,
+              value: result[v].sort((a, b) => {
+                return b.createdat - a.createdat;
+              }),
+            });
+          });
+          respok(res, null, null, { respdata: final });
+        });
+      //respok(res, null, null, {respdata});
+      return;
+    } else {
+      resperr(res, 'INVALID-VALUE');
+      return;
+    }
   }
 });
 

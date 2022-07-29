@@ -151,9 +151,9 @@ router.get('/demo/token', async (req, res) => {
 
   await db['balances'].create({
     uuid: demo_uuid,
-    total: 0,
+    total: 1000000000,
     locked: 0,
-    avail: 0,
+    avail: 1000000000,
     typestr: 'DEMO',
     isMember: 0,
   });

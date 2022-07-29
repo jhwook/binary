@@ -19,25 +19,51 @@ module.exports = (io, socket) => {
     if (!socket.decoded) {
       new Error('Authentication error');
     }
-    let { id } = socket.decoded;
-    let respdata = await db['bets'].findAll({
-      where: {
-        uid: id,
-      },
-      include: [
-        {
-          model: db['assets'],
-          attributes: ['name', 'socketAPISymbol'],
-          nest: true,
+    let id;
+    let respdata;
+    if (socket.decoded.id) {
+      id = socket.decoded.id;
+      respdata = await db['bets'].findAll({
+        where: {
+          uid: id,
         },
-      ],
+        include: [
+          {
+            model: db['assets'],
+            attributes: ['name', 'socketAPISymbol'],
+            nest: true,
+          },
+        ],
 
-      nest: true,
-      raw: true,
-    });
-    if (!respdata) {
-      return;
+        nest: true,
+        raw: true,
+      });
+      if (!respdata) {
+        return;
+      }
     }
+    if (socket.decoded.demo_uuid) {
+      let uuid = socket.decoded.demo_uuid;
+      respdata = await db['bets'].findAll({
+        where: {
+          uuid: uuid,
+        },
+        include: [
+          {
+            model: db['assets'],
+            attributes: ['name', 'socketAPISymbol'],
+            nest: true,
+          },
+        ],
+
+        nest: true,
+        raw: true,
+      });
+      if (!respdata) {
+        return;
+      }
+    }
+
     // let currentPrice = Math.random();//현재 시세
 
     let list = await Promise.all(

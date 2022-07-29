@@ -8,14 +8,37 @@ const LOGGER = console.log;
 let { Op } = db.Sequelize;
 const moment = require('moment');
 const cliredisa = require('async-redis').createClient();
+const fs = require('fs');
+const { upload } = require('../utils/multer');
+const WEB_URL = 'https://options1.net/resource';
 
 var router = express.Router();
+
+router.post('/notification', (req, res) => {
+  let {} = req.body;
+});
 
 router.post('/add/branch', (req, res) => {
   let { id } = req.body;
   db['users'].update({ isbranch: 1 }, { where: { id } }).then((resp) => {
     respok(res, 'successfully added');
   });
+});
+
+router.put('/update/:tablename/:val', (req, res) => {
+  let { tablename, val } = req.params;
+  let { id } = req.query;
+  let jfilter = { id: id };
+  let updateFilter = { active: val };
+  db[tablename]
+    .update(updateFilter, {
+      where: {
+        ...jfilter,
+      },
+    })
+    .then((resp) => {
+      respok(res, 'OK');
+    });
 });
 
 router.get('/sum/rows/:tablename/:fieldname', adminauth, async (req, res) => {
@@ -667,9 +690,9 @@ router.get(
 );
 
 router.get(
-  '/transactions/:isadmin/:offset/:limit/:orderkey/:orderval',
+  '/transactions/:isadmin/:type/:offset/:limit/:orderkey/:orderval',
   async (req, res) => {
-    let { isadmin, offset, limit, orderkey, orderval } = req.params;
+    let { isadmin, type, offset, limit, orderkey, orderval } = req.params;
     let { date0, date1, filterkey, filterval, searchkey } = req.query;
     offset = +offset;
     limit = +limit;
@@ -710,18 +733,22 @@ router.get(
         },
       };
     }
+    jfilter = {
+      ...jfilter,
+      type: +type,
+    };
     console.log('jfilter', jfilter);
     let jfilter2 = {};
     if (isadmin === 1) {
       jfilter2 = {
         ...jfilter2,
-        isadmin: 1,
+        typestr: 'MAIN',
       };
     }
     if (isadmin === 0) {
       jfilter2 = {
         ...jfilter2,
-        isbranch: 1,
+        typestr: 'BRANCH',
       };
     }
 
@@ -736,18 +763,82 @@ router.get(
           refererList.push(el.id);
         });
       });
-    console.log('refererList', refererList);
-    db['transactions'].findAll({
-      where: {
-        ...jfilter,
-        uid: {
-          [Op.in]: refererList,
+
+    db['transactions']
+      .findAndCountAll({
+        where: {
+          ...jfilter,
+          uid: {
+            [Op.in]: refererList,
+          },
         },
-      },
-      raw: true,
-    });
+        offset,
+        limit,
+        order: [[orderkey, orderval]],
+        raw: true,
+      })
+      .then(async (resp) => {
+        // console.log(resp);
+        let promises = resp.rows.map(async (el) => {
+          let { id, uid, typestr, amount } = el;
+          amount = amount / 10 ** 6;
+          el['amount'] = amount;
+          el['user_info'] = await db['users'].findOne({
+            where: {
+              id: uid,
+            },
+            raw: true,
+          });
+          await db['transactions']
+            .findAll({
+              where: {
+                typestr,
+                uid,
+                id: {
+                  [Op.lte]: id,
+                },
+              },
+              raw: true,
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+              ],
+            })
+            .then((resp) => {
+              let [{ sum }] = resp;
+              sum = sum / 10 ** 6;
+              el['cumulative_amount'] = sum;
+            });
+          el['user_balance'] = await db['balances']
+            .findOne({
+              where: {
+                uid,
+                typestr: 'LIVE',
+              },
+              raw: true,
+            })
+            .then((resp) => {
+              resp.total = resp.total / 10 ** 6;
+              resp.avail = resp.avail / 10 ** 6;
+              return resp;
+            });
+          el['wallet_address'] = await db['userwallets']
+            .findOne({
+              where: { uid },
+              raw: true,
+            })
+            .then((resp) => {
+              return resp.walletaddress;
+            });
+        });
+        await Promise.all(promises);
+        respok(res, null, null, { resp });
+      });
   }
 );
+
+router.post('/notification', upload.single('file'), (req, res) => {
+  let { title, content, writer, enrolldate, exposure } = req.body;
+});
 // router.get('/referrals/:iswho/:offset/:limit/:orderkey/:orderval', async (req, res) => {
 
 // })

@@ -21,11 +21,17 @@ if (config.use_env_variable) {
     config.password,
     {
       ...config,
-dialect: 'mysql' , // mariadb',
+      dialect: 'mariadb', // mariadb',
       //    , port : '37375'
-//      dialectOptions: { timezone: 'Etc/GMT-9' },
+      //      dialectOptions: { timezone: 'Etc/GMT-9' },
       define: { timestamps: false },
       logging: false,
+      pool: {
+        max: 500,
+        min: 0,
+        acquire: 60000,
+        idle: 10000,
+      },
     }
     //  , define: {timestamps: false}
   );

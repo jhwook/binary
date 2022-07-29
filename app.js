@@ -104,3 +104,13 @@ cron.schedule('*/1 * * * *', () => {
 // require("./service-rmq/cal_dividendrate-rmq");
 
 module.exports = app;
+let RUN_PROCSSES_BY_REQUIRE = true;
+if (RUN_PROCSSES_BY_REQUIRE) {
+  require('./schedule/betting_bot');
+  require('./schedule/calculateDividendRate');
+  require('./schedule/closeBets');
+  require('./schedule/delete_timeout_demoUser');
+  require('./tickers/streamData');
+  require('./tickers/ticker_price_min');
+  // require('./tickers/getLast30secPrice');
+}
