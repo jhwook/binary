@@ -26,65 +26,64 @@ router.get('/list', softauth, async (req, res) => {
     jfilter = { name: { [Op.like]: `%${searchkey}%` } };
   }
   console.log('jfilter', jfilter);
-  if (req.decoded.id) {
-    id = req.decoded.id;
-    db['assets']
-      .findAll({
-        where: {
-          ...jfilter,
-        },
-        // include: [
-        //   {
-        //     model: db['bookmarks'],
-        //     where: { uid: id || null },
-        //     required: false,
-        //   },
-        // ],
-        raw: true,
-      })
-      // .then((resp) => {
-      //   respok(res, null, null, { resp });
-      // });
-      .then(async (resp) => {
-        let promises = resp.map(async (el) => {
-          let assetId = el.id;
-          await db['bookmarks']
-            .findOne({
-              where: { assetsId: assetId, uid: id },
-              raw: true,
-            })
-            .then((resp) => {
-              if (!resp) {
-                el['bookmark'] = 0;
-              } else {
-                el['bookmark'] = 1;
-              }
-            });
+
+  if (req.decoded) {
+    if (req.decoded.id) {
+      id = req.decoded.id;
+      db['assets']
+        .findAll({
+          where: {
+            ...jfilter,
+          },
+
+          raw: true,
+        })
+
+        .then(async (resp) => {
+          let promises = resp.map(async (el) => {
+            let assetId = el.id;
+            await db['bookmarks']
+              .findOne({
+                where: { assetsId: assetId, uid: id },
+                raw: true,
+              })
+              .then((resp) => {
+                if (!resp) {
+                  el['bookmark'] = 0;
+                } else {
+                  el['bookmark'] = 1;
+                }
+              });
+          });
+          await Promise.all(promises);
+
+          respok(res, null, null, { resp });
         });
-        await Promise.all(promises);
-        // console.log(jfilter);
-        respok(res, null, null, { resp });
-      });
+    } else {
+      db['assets']
+        .findAll({
+          where: {
+            ...jfilter,
+          },
+
+          raw: true,
+        })
+
+        .then((resp) => {
+          respok(res, null, null, { resp });
+          return;
+        });
+    }
   } else {
     db['assets']
       .findAll({
         where: {
           ...jfilter,
         },
-        // include: [
-        //   {
-        //     model: db['bookmarks'],
-        //     where: { uid: id || null },
-        //     required: false,
-        //   },
-        // ],
+
         raw: true,
       })
-      // .then((resp) => {
-      //   respok(res, null, null, { resp });
-      // });
       .then((resp) => {
-        // console.log(jfilter);
         respok(res, null, null, { resp });
       });
   }

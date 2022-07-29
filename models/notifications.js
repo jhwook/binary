@@ -1,7 +1,7 @@
 /* jshint indent: 2 */
 
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('banners', {
+  return sequelize.define('notifications', {
     id: {
       autoIncrement: true,
       type: DataTypes.INTEGER(11).UNSIGNED,
@@ -37,15 +37,11 @@ module.exports = function(sequelize, DataTypes) {
       type: DataTypes.STRING(200),
       allowNull: true
     },
-    description: {
+    content: {
       type: DataTypes.STRING(300),
       allowNull: true
     },
-    pc_imageurl: {
-      type: DataTypes.STRING(300),
-      allowNull: true
-    },
-    mobile_imageurl: {
+    imageurl: {
       type: DataTypes.STRING(300),
       allowNull: true
     },
@@ -69,17 +65,12 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true,
       defaultValue: 0
     },
-    isBanner: {
-      type: DataTypes.INTEGER(11),
-      allowNull: true,
-      defaultValue: 1
-    },
     external_link: {
       type: DataTypes.STRING(200),
       allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'banners'
+    tableName: 'notifications'
   });
 };
