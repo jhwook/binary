@@ -68,6 +68,14 @@ module.exports = function(sequelize, DataTypes) {
     external_link: {
       type: DataTypes.STRING(200),
       allowNull: true
+    },
+    writer_name: {
+      type: DataTypes.STRING(20),
+      allowNull: true
+    },
+    enrollDate: {
+      type: DataTypes.STRING(40),
+      allowNull: true
     }
   }, {
     sequelize,

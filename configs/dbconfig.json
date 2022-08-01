@@ -1,8 +1,8 @@
 {
   "development": {
-    "host": "localhost",
+    "host": "3.35.120.65",
     "username": "binary",
-    "port": 3306,
+    "port": 37239,
     "password": "Ut5iQQ4Bad4LVARPAq1x",
     "database": "binopt",
     "dialect": "mariadb"

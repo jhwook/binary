@@ -3,82 +3,126 @@ const axios = require('axios');
 const db = require('../models');
 const cliredisa = require('async-redis').createClient();
 const moment = require('moment');
-let temp = {};
+
 let sec = 0;
-const get30secPrice = async () => {
+const get30secPrice = async (assetId, expiry, i, temp) => {
   await db['assets']
-    .findAll({
-      where: { active: 1 },
+    .findOne({
+      where: { active: 1, id: assetId },
       raw: true,
     })
-    .then((resp) => {
-      resp.map(async (asset) => {
-        let { name, socketAPISymbol } = asset;
-        let currentPrice = await cliredisa.hget(
-          'STREAM_ASSET_PRICE',
-          socketAPISymbol
-        );
-        if (!temp[name]) {
-          temp[name] = [currentPrice];
-        } else {
-          temp[name].push(currentPrice);
-        }
-      });
+    .then(async (resp) => {
+      let { name, dispSymbol, socketAPISymbol } = resp;
+      let currentPrice = await cliredisa.hget(
+        'STREAM_ASSET_PRICE',
+        socketAPISymbol
+      );
+      if (temp[name].length) {
+        temp[name].push(currentPrice);
+      } else {
+        temp[name] = [currentPrice];
+      }
+
+      if (i === 29) {
+        let periodPrice = JSON.stringify(temp[name]);
+        db['tickers'].create({
+          assetId,
+          name,
+          symbol: dispSymbol,
+          periodPrice,
+          expiryTime: expiry,
+        });
+        temp = {};
+      }
+      console.log('temp', temp);
+      return temp;
     });
 };
 
-cron.schedule('30-59 * * * * *', async () => {
-  let now = moment().format('HH:mm:ss');
-  sec++;
-  // console.log('now', now, temp, '/', sec);
-  get30secPrice();
+const bettingHistory = (assetId, starting, expiry) => {
+  let temp = {};
+  let dur = expiry - starting;
+  dur = (dur / 30).toFixed(0);
+  // console.log(assetId, dur);
+  // let temp = new Array(30);
+  for (let i = 0; i < 30; i++) {
+    let timeout = Number(i * dur * 1000);
 
-  if (sec === 30) {
-    await db['assets']
-      .findAll({
-        where: { active: 1 },
-        raw: true,
-      })
-      .then((resp) => {
-        let now_unix = moment().add(1, 'second').unix();
-        resp.forEach((el) => {
-          let { name, dispSymbol, id } = el;
-          let periodPrice = JSON.stringify(temp[name]);
-          db['tickers'].create({
-            assetId: id,
-            name,
-            symbol: dispSymbol,
-            periodPrice,
-            expiryTime: now_unix,
-          });
-        });
-        temp = {};
-        sec = 0;
-      });
+    setTimeout(async () => {
+      temp = await get30secPrice(assetId, expiry, i, temp);
+    }, timeout);
   }
-  // setInterval(async () => {
-  //   await db['assets']
-  //     .findAll({
-  //       where: { active: 1 },
-  //       raw: true,
-  //     })
-  //     .then((resp) => {
-  //       let now_unix = moment().unix();
-  //       resp.forEach((el) => {
-  //         let { name, dispSymbol, id } = el;
-  //         let periodPrice = JSON.stringify(temp[name]);
-  //         db['tickers'].create({
-  //           assetId: id,
-  //           name,
-  //           symbol: dispSymbol,
-  //           periodPrice,
-  //           expiryTime: now_unix,
-  //         });
-  //       });
-  //       temp = {};
-  //     });
-  // }, 30000);
+};
+
+cron.schedule('0 * * * * *', async () => {
+  let time_now_unix = moment().startOf('minute').unix();
+  await db['bets']
+    .findAll({
+      where: { starting: time_now_unix },
+      raw: true,
+    })
+    .then((resp) => {
+      if (resp) {
+        resp.map((bet) => {
+          let { expiry, assetId } = bet;
+          bettingHistory(assetId, time_now_unix, expiry);
+        });
+      }
+    });
 });
+
+// cron.schedule('30-59 * * * * *', async () => {
+//   let now = moment().format('HH:mm:ss');
+//   sec++;
+//   // console.log('now', now, temp, '/', sec);
+//   get30secPrice();
+
+//   if (sec === 30) {
+//     await db['assets']
+//       .findAll({
+//         where: { active: 1 },
+//         raw: true,
+//       })
+//       .then((resp) => {
+//         let now_unix = moment().add(1, 'second').unix();
+//         resp.forEach((el) => {
+//           let { name, dispSymbol, id } = el;
+//           let periodPrice = JSON.stringify(temp[name]);
+//           db['tickers'].create({
+//             assetId: id,
+//             name,
+//             symbol: dispSymbol,
+//             periodPrice,
+//             expiryTime: now_unix,
+//           });
+//         });
+//         temp = {};
+//         sec = 0;
+//       });
+//   }
+//   // setInterval(async () => {
+//   //   await db['assets']
+//   //     .findAll({
+//   //       where: { active: 1 },
+//   //       raw: true,
+//   //     })
+//   //     .then((resp) => {
+//   //       let now_unix = moment().unix();
+//   //       resp.forEach((el) => {
+//   //         let { name, dispSymbol, id } = el;
+//   //         let periodPrice = JSON.stringify(temp[name]);
+//   //         db['tickers'].create({
+//   //           assetId: id,
+//   //           name,
+//   //           symbol: dispSymbol,
+//   //           periodPrice,
+//   //           expiryTime: now_unix,
+//   //         });
+//   //       });
+//   //       temp = {};
+//   //     });
+//   // }, 30000);
+// });
 
 module.exports = { get30secPrice };
 

@@ -18,7 +18,8 @@ router.post(
     const { pc, mobile } = req.files;
     console.log(pc[0], mobile[0]);
     const imgfile = req.file;
-    let { type, title, external_link } = req.body;
+    let { status, title, external_link, exposure, exposure_position } =
+      req.body;
     let { date0, date1 } = req.query;
     console.log(req.files);
 
@@ -28,13 +29,13 @@ router.post(
         mobile_imageurl: `${WEB_URL}/banners/${mobile[0].filename}`,
         startDate: date0,
         endDate: date1,
-        // exposure,
-        // exposure_posiiton,
-        // status,
+        exposure,
+        exposure_posiiton,
+        status,
         // description,
         // type,
-        // title,
-        // external_link,
+        title,
+        external_link,
         // active,
       })
       .then((_) => {

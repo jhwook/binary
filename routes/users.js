@@ -17,6 +17,7 @@ const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const { sendMessage } = require('../services/twilio');
 const { v4: uuidv4 } = require('uuid');
+const e = require('express');
 
 async function generateRefCode(uid, i = 0) {
   let code = String(crypto.createHash('md5').update(uid).digest('hex')).slice(
@@ -876,7 +877,7 @@ router.get(
     let { offset, limit, orderkey, orderval } = req.params;
     offset = +offset;
     limit = +limit;
-    id = 99;
+    // id = 99;
     await db['referrals']
       .findAndCountAll({
         where: { referer_uid: id },
@@ -966,7 +967,7 @@ router.get(
     let { limit, offset, orderkey, orderval } = req.params;
     offset = +offset;
     limit = +limit;
-    id = 99;
+
     await db['logfees']
       .findAndCountAll({
         where: { recipient_uid: id, typestr: 'FEE_TO_REFERER' },
@@ -1057,6 +1058,149 @@ router.get(
     //     await Promise.all(promises);
     //     respok(res, null, null, { data });
     //   });
+  }
+);
+router.get(
+  '/branch/:offset/:limit/:orderkey/:orderval',
+  auth,
+  async (req, res) => {
+    let { offset, limit, orderkey, orderval } = req.params;
+    let { id } = req.decoded;
+    offset = +offset;
+    limit = +limit;
+
+    db['referrals']
+      .findAndCountAll({
+        where: {
+          referer_uid: id,
+        },
+        raw: true,
+        offset,
+        limit,
+        order: [[orderkey, orderval]],
+      })
+      .then(async (resp) => {
+        let { rows, count } = resp;
+        let promises = rows.map(async (v) => {
+          let { referral_uid, createdat } = v;
+          await db['users']
+            .findOne({
+              where: { id: referral_uid },
+              raw: true,
+            })
+            .then((resp) => {
+              v['referral_user'] = resp;
+            });
+          await db['users']
+            .findOne({
+              where: { id },
+              raw: true,
+            })
+            .then((resp) => {
+              v['recommender'] = resp;
+            });
+
+          await db['transactions']
+            .findAll({
+              where: { uid: referral_uid, typestr: 'WITHDRAW' },
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+              ],
+              raw: true,
+            })
+            .then((resp) => {
+              if (resp) {
+                let [{ sum }] = resp;
+                v['total_withdraw_amount'] = sum / 10 ** 6;
+              } else {
+                v['total_withdraw_amount'] = 0;
+              }
+            });
+          await db['transactions']
+            .findAll({
+              where: { uid: referral_uid, typestr: 'DEPOSIT' },
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+              ],
+              raw: true,
+            })
+            .then((resp) => {
+              if (resp) {
+                let [{ sum }] = resp;
+                v['total_deposit_amount'] = sum / 10 ** 6;
+              } else {
+                v['total_deposit_amount'] = 0;
+              }
+            });
+          await db['balances']
+            .findOne({
+              where: { uid: referral_uid, typestr: 'LIVE' },
+              raw: true,
+            })
+            .then((resp) => {
+              v['possess'] = resp.total / 10 ** 6;
+            });
+          v['trade_amount'] =
+            Number(v.total_deposit_amount) + Number(v.total_withdraw_amount);
+        });
+        await Promise.all(promises);
+        respok(res, null, null, { resp });
+      });
+  }
+);
+
+router.get(
+  '/branch/fee/log/:offset/:limit/:orderkey/:orderval',
+  auth,
+  async (req, res) => {
+    let { offset, limit, orderkey, orderval } = req.params;
+    let { id } = req.decoded;
+    offset = +offset;
+    limit = +limit;
+
+    db['logfees']
+      .findAndCountAll({
+        where: { recipient_uid: id },
+        raw: true,
+        offset,
+        limit,
+        order: [[orderkey, orderval]],
+      })
+      .then(async (resp) => {
+        let { rows, count } = resp;
+        let promises = rows.map(async (el) => {
+          let { payer_uid, assetId, feeamount, betamount } = el;
+          await db['users']
+            .findOne({
+              where: { id: payer_uid },
+              raw: true,
+            })
+            .then((resp) => {
+              let { id } = resp;
+              el['referral_user'] = resp;
+            });
+          // await db['users'].findOne({
+          //   where: {id},
+          //   raw: true,
+          // }).then((resp) => {
+          //   el['referer_user'] = resp
+          // })
+          await db['assets']
+            .findOne({
+              where: { id: assetId },
+              raw: true,
+            })
+            .then((resp) => {
+              el['assets'] = resp;
+            });
+          el['received_amount'] = (feeamount / 10 ** 6).toFixed(2);
+          el['received_percent'] = 2.5;
+          el['using'] = (betamount / 10 ** 6).toFixed(2);
+          el['profit'] = (feeamount / 10 ** 6 / 2.5).toFixed(2);
+        });
+        await Promise.all(promises);
+        respok(res, null, null, { resp });
+      });
   }
 );
 

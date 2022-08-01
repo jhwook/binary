@@ -354,8 +354,12 @@ const calculatebets = (i, sorted_bets, type) => {
   let bet_count = 0;
   let low_side_amount = 0;
   let high_side_amount = 0;
+  let win_side_amount = 0;
+  let lose_side_amount = 0;
   let low_side_dividendrate;
   let high_side_dividendrate;
+  let win_side_dividenedrate;
+  let lose_side_dividenedrate;
   let result;
   let rounds = Object.keys(sorted_bets);
   // LOGGER('@rounds', rounds);
@@ -369,20 +373,24 @@ const calculatebets = (i, sorted_bets, type) => {
       expiry_ = expiry;
 
       let win_lose = tell_win_lose(bet);
-      let case_combo = `${win_lose}_${bet.side}`;
+      let case_combo = `${win_lose}_${side}`;
       ++bet_count;
       switch (case_combo) {
         case '1_HIGH':
           high_side_amount += amount;
+          win_side_amount += amount;
           break;
         case '-1_HIGH':
-          low_side_amount += amount;
+          high_side_amount += amount;
+          lose_side_amount += amount;
           break;
         case '1_LOW':
           low_side_amount += amount;
+          win_side_amount += amount;
           break;
         case '-1_LOW':
-          high_side_amount += amount;
+          low_side_amount += amount;
+          lose_side_amount += amount;
           break;
       }
       /**      if (side === 'HIGH') {
@@ -393,6 +401,14 @@ const calculatebets = (i, sorted_bets, type) => {
         low_side_amount += amount;
       } */
     });
+    win_side_dividenedrate = (
+      (lose_side_amount / win_side_amount) *
+      100
+    ).toFixed(2);
+    lose_side_dividenedrate = (
+      (win_side_amount / lose_side_amount) *
+      100
+    ).toFixed(2);
     low_side_dividendrate = (
       (high_side_amount / low_side_amount) *
       100
@@ -420,6 +436,8 @@ const calculatebets = (i, sorted_bets, type) => {
       round,
       low_side_amount,
       high_side_amount,
+      lose_side_dividenedrate,
+      win_side_dividenedrate,
       dividendrate: { low_side_dividendrate, high_side_dividendrate },
       bet_count,
     };
@@ -474,6 +492,44 @@ const calculate_dividendrate_sec = async (assetList, type) => {
   return result;
 };
 
+const calculate_dividendrate_my = async (userId, type) => {
+  let result = [];
+
+  for (let i = 0; i < assetList.length; i++) {
+    await db['bets']
+      .findAll({
+        where: {
+          // assetId: assetList[i],
+          uid: userId,
+
+          type,
+        },
+        raw: true,
+      })
+      .then(async (resp) => {
+        let sorted_bets = {};
+        resp.map((bet) => {
+          let { expiry } = bet;
+
+          // let expiry_date = moment.unix(expiry).format('YYYY-MM-DD HH:mm:ss');
+          if (!sorted_bets[expiry]) {
+            sorted_bets[expiry] = [bet];
+          } else {
+            sorted_bets[expiry].push(bet);
+          }
+        });
+
+        if (Object.keys(sorted_bets).length === 0) {
+          // LOGGER(v, '@no bets');
+        } else {
+          result.push(calculatebets(assetList[i], sorted_bets, type));
+        }
+      });
+  }
+
+  return result;
+};
+
 cron.schedule('* * * * * *', async () => {
   // LOGGER('@Calculate dividendrates', moment().format('HH:mm:ss', '@binopt'));
   await get_tickers();
@@ -499,4 +555,8 @@ cron.schedule('* * * * * *', async () => {
   calculate_dividendrate_sec(assetList, 'DEMO');
 });
 
-module.exports = { calculate_dividendrate, get_tickers };
+module.exports = {
+  calculate_dividendrate,
+  get_tickers,
+  calculate_dividendrate_my,
+};

@@ -179,10 +179,12 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
   let { off, lim, startDate, endDate } = req.params;
   let { id } = req.decoded;
   console.log(id);
+  // offset = +offset;
+  // limit = +limit;
   db['transactions']
     .findAll({
       where: {
-        target_uid: id,
+        uid: id,
       },
       include: [
         {
@@ -238,16 +240,17 @@ router.patch('/branch/transfer', auth, async (req, res) => {
         { txhash, verifier: id },
         { where: { id: txId } }
       );
-        let tx = await db['transactions'].findOne({where:{txhash}});
-        tx
-        .update({
-            status: 1
-        });
-        await db['balances'].increment(['avail', 'total'], {by: amount, where:{uid: tx.uid, typestr: "LIVE"}})
-    
+      let tx = await db['transactions'].findOne({ where: { txhash } });
+      tx.update({
+        status: 1,
+      });
+      await db['balances'].increment(['avail', 'total'], {
+        by: amount,
+        where: { uid: tx.uid, typestr: 'LIVE' },
+      });
+
       respok(res, 'SUBMITTED');
       //closeTx({ txhash, type: 'TRANSFER', tokentype: tokentype, txId, amount: amount*(10**6) });
-      
     } else {
     }
   } else {
