@@ -19,7 +19,7 @@ const getTickerPrice = async () => {
           .then((resp) => {
             let { price } = resp.data;
             cliredisa.hset('STREAM_ASSET_PRICE_PER_MIN', APISymbol, price);
-            console.log(APISymbol, tickerSrc, price);
+            // console.log(APISymbol, tickerSrc, price);
           });
       });
     });

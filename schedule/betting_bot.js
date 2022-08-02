@@ -35,7 +35,7 @@ const betbot = async () => {
         );
         for (let i = 0; i < 4; i++) {
           let uid_list = [93, 94, 95, 114];
-          let amount = Math.floor(Math.random() * 10 ** 2) * 10 ** 6;
+          let amount = Math.floor((Math.random() + 1) * 10 ** 2) * 10 ** 6;
           let side = 'HIGH';
           if (i % 2 === 0) side = 'LOW';
           db['bets'].create({

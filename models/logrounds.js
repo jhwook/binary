@@ -56,6 +56,10 @@ module.exports = function(sequelize, DataTypes) {
     highDiffRate: {
       type: DataTypes.STRING(11),
       allowNull: true
+    },
+    totalAmount: {
+      type: DataTypes.BIGINT,
+      allowNull: true
     }
   }, {
     sequelize,

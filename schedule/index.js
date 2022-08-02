@@ -10,6 +10,17 @@ module.exports = (io) => {
   const path = require('path');
   const listenersPath = path.resolve(__dirname);
   io.use((socket, next) => {
+    fs.readdir(listenersPath, (err, files) => {
+      if (err) {
+        process.exit(1);
+      }
+      require(path.resolve(__dirname, 'closeBets.js'))(io, socket);
+      // files.map((fileName) => {
+      //   if (fileName === 'closeBets.js') {
+      //     require(path.resolve(__dirname, fileName))(io, socket);
+      //   }
+      // });
+    });
     if (socket.handshake.query && socket.handshake.query.token) {
       jwt.verify(
         socket.handshake.query.token,
@@ -58,17 +69,17 @@ module.exports = (io) => {
     //   await client.flushall("string key");
     // };
 
-    fs.readdir(listenersPath, (err, files) => {
-      if (err) {
-        process.exit(1);
-      }
-      require(path.resolve(__dirname, 'closeBets.js'))(io, socket);
-      // files.map((fileName) => {
-      //   if (fileName === 'closeBets.js') {
-      //     require(path.resolve(__dirname, fileName))(io, socket);
-      //   }
-      // });
-    });
+    // fs.readdir(listenersPath, (err, files) => {
+    //   if (err) {
+    //     process.exit(1);
+    //   }
+    //   require(path.resolve(__dirname, 'closeBets.js'))(io, socket);
+    //   // files.map((fileName) => {
+    //   //   if (fileName === 'closeBets.js') {
+    //   //     require(path.resolve(__dirname, fileName))(io, socket);
+    //   //   }
+    //   // });
+    // });
     socket.on('disconnect', () => {
       //		unbindIpPortSocket( address , socket.id )
       deleteSocketid(socket.id);

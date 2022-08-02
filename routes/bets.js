@@ -111,7 +111,8 @@ router.post(
       }
     }
     ///////////////////////////////////////////////////////////
-    if (req.decoded.demo_uuid) {
+    // if (req.decoded.demo_uuid)
+    else {
       let demo_uuid = req.decoded.demo_uuid;
       if (!assetId || !amount) {
         resperr(res, 'INVALID-DATA');
@@ -251,6 +252,7 @@ router.get('/my/:type', auth, async (req, res) => {
               model: db['assets'],
             },
           ],
+          limit: 10,
           order: [['id', 'DESC']],
           raw: true,
           nest: true,
@@ -318,8 +320,7 @@ router.get('/my/:type', auth, async (req, res) => {
       resperr(res, 'INVALID-VALUE');
       return;
     }
-  }
-  if (req.decoded.demo_uuid) {
+  } else {
     let demo_uuid = req.decoded.demo_uuid;
     if (type == 'now') {
       let respdata = await db['bets'].findAll({
@@ -370,6 +371,8 @@ router.get('/my/:type', auth, async (req, res) => {
               model: db['assets'],
             },
           ],
+          // offset: 0,
+          limit: 10,
           order: [['id', 'DESC']],
           raw: true,
           nest: true,
@@ -438,6 +441,126 @@ router.get('/my/:type', auth, async (req, res) => {
       return;
     }
   }
+
+  // if (req.decoded.demo_uuid) {
+  //   let demo_uuid = req.decoded.demo_uuid;
+  //   if (type == 'now') {
+  //     let respdata = await db['bets'].findAll({
+  //       where: {
+  //         uuid: demo_uuid,
+  //       },
+  //       include: [
+  //         {
+  //           model: db['assets'],
+  //         },
+  //       ],
+  //     });
+  //     respok(res, null, null, { respdata });
+  //     return;
+  //   } else if (type == 'history') {
+  //     let respdata = await db['betlogs']
+  //       .findAll({
+  //         where: {
+  //           uid: id,
+  //         },
+  //         attributes: [
+  //           [
+  //             db.Sequelize.fn('day', db.Sequelize.col('betlogs.createdat')),
+  //             'day',
+  //           ],
+  //           [
+  //             db.Sequelize.fn('year', db.Sequelize.col('betlogs.createdat')),
+  //             'year',
+  //           ],
+  //           [
+  //             db.Sequelize.fn('month', db.Sequelize.col('betlogs.createdat')),
+  //             'month',
+  //           ],
+  //           'uid',
+  //           'assetId',
+  //           'amount',
+  //           'starting',
+  //           'expiry',
+  //           'startingPrice',
+  //           'endingPrice',
+  //           'side',
+  //           'type',
+  //           'status',
+  //           'diffRate',
+  //         ],
+  //         include: [
+  //           {
+  //             model: db['assets'],
+  //           },
+  //         ],
+  //         order: [['id', 'DESC']],
+  //         raw: true,
+  //         nest: true,
+  //       })
+  //       .then(async (respdata) => {
+  //         let promises = respdata.map(async (el) => {
+  //           let { assetId, amount, diffRate, status, expiry } = el;
+  //           if (status === 0) {
+  //             amount = amount / 10 ** 6;
+  //             let profit_amount = amount.toFixed(2);
+  //             el['profit_amount'] = -1 * profit_amount;
+  //             el['profit_percent'] = (
+  //               -1 *
+  //               (profit_amount / amount) *
+  //               100
+  //             ).toFixed(0);
+  //           }
+  //           if (status === 1) {
+  //             amount = amount / 10 ** 6;
+  //             let profit_amount = ((amount * diffRate) / 100).toFixed(2);
+  //             el['profit_amount'] = profit_amount;
+  //             el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(
+  //               0
+  //             );
+  //           }
+  //           await db['tickers']
+  //             .findOne({
+  //               where: {
+  //                 assetId,
+  //                 expiryTime: { [Op.gte]: expiry - 2, [Op.lte]: expiry + 62 },
+  //               },
+  //               raw: true,
+  //             })
+  //             .then((resp) => {
+  //               if (resp) {
+  //                 el['periodData'] = resp.periodPrice;
+  //               }
+  //             });
+  //         });
+  //         await Promise.all(promises);
+  //         let result = respdata.reduce(function (r, a) {
+  //           //console.log(a)
+  //           let ynm = a.year + '-' + a.month.zeroPad() + '-' + a.day.zeroPad();
+  //           r[ynm] = r[ynm] || [];
+  //           delete a.year;
+  //           delete a.month;
+  //           delete a.day;
+  //           r[ynm].push(a);
+  //           return r;
+  //         }, Object.create(null));
+  //         let final = [];
+  //         Object.keys(result).forEach((v) => {
+  //           final.push({
+  //             time: v,
+  //             value: result[v].sort((a, b) => {
+  //               return b.createdat - a.createdat;
+  //             }),
+  //           });
+  //         });
+  //         respok(res, null, null, { respdata: final });
+  //       });
+  //     //respok(res, null, null, {respdata});
+  //     return;
+  //   } else {
+  //     resperr(res, 'INVALID-VALUE');
+  //     return;
+  //   }
+  // }
 });
 
 router.get('/count/:type', async (req, res) => {
