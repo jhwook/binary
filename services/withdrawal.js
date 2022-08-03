@@ -9,10 +9,12 @@ const withdraw = async (jdata) => {
     let { userid, tokentype, amount, rxaddr, adminaddr, adminpk } = jdata;
     //let {value: ADMINADDR} = await db['settings'].findOne({where:{name: 'ADMINADDR'}})
     //let {value: ADMINPK} = await db['settings'].findOne({where:{name: 'ADMINPK'}})
+    console.log('jdata', jdata);
     console.log(adminaddr);
     console.log(tokentype);
     console.log(contractaddr[tokentype]);
     let amt2sendwei = (amount * 10 ** 6).toString();
+    // let amt2sendwei = amount.toString();
     const contract = new web3.eth.Contract(abierc20, contractaddr[tokentype]);
     await contract.methods.balanceOf(adminaddr).call(async (err, balance) => {
       console.log(adminaddr, balance);
@@ -53,6 +55,7 @@ const withdraw = async (jdata) => {
           status: 0,
           localeAmount: amount,
           localeUnit: tokentype,
+          rxaddr,
         });
 
         console.log(signedTx);
@@ -91,3 +94,16 @@ const withdraw = async (jdata) => {
 };
 
 module.exports = { withdraw };
+
+// CREATE TABLE `networktoken` (
+//   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+//   `createdat` datetime DEFAULT current_timestamp(),
+//   `updatedat` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+//   `name` varchar(11) DEFAULT NULL,
+//   `decimal` int(30) DEFAULT NULL,
+//   `contractaddress` varchar(80) DEFAULT NULL,
+//   `networkidnumber` int(20) unsigned DEFAULT NULL,
+//   `nettype` varchar(11) DEFAULT NULL,
+//   `uuid` varchar(60) DEFAULT NULL,
+//   PRIMARY KEY (`id`)
+// );

@@ -56,8 +56,8 @@ router.get('/', async (req, res) => {
 });
 
 // query banner
-router.get('/:offset/:limit/:orderkey/:orderval', async (req, res) => {
-  let { offset, limit, orderkey, orderval } = req.params;
+router.get('/:offset/:limit', async (req, res) => {
+  let { offset, limit } = req.params;
   let { date0, date1, filterkey, filterval, searchkey } = req.query;
   offset = +offset;
   limit = +limit;
@@ -116,7 +116,7 @@ router.get('/:offset/:limit/:orderkey/:orderval', async (req, res) => {
 });
 
 //edit banner pic
-router.put(
+router.patch(
   '/edit_banner_pic/:key',
   upload.fields([{ name: 'pc' }, { name: 'mobile' }]),
   async (req, res) => {

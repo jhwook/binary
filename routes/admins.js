@@ -224,11 +224,11 @@ router.post('/add/branch', async (req, res) => {
   }
 });
 
-router.patch('/toggle/:tablename/:val', (req, res) => {
-  let { tablename, val } = req.params;
-  let { id } = req.query;
+router.patch('/toggle/:tablename/:id/:active', (req, res) => {
+  let { tablename, id, active } = req.params;
+  // let {  } = req.query;
   let jfilter = { id: id };
-  let updateFilter = { active: val };
+  let updateFilter = { active: active };
   db[tablename]
     .update(updateFilter, {
       where: {
@@ -380,245 +380,234 @@ router.get('/userinfo/:id', async (req, res) => {
       respok(res, null, null, { resp: user });
     });
 });
-router.get(
-  '/list/users/:offset/:limit/:orderkey/:orderval',
-  async (req, res) => {
-    let { offset, limit, orderkey, orderval } = req.params;
-    let { date0, date1, filterkey, filterval, searchkey } = req.query;
-    offset = +offset;
-    limit = +limit;
-    let jfilter = {};
-    if (filterkey && filterval) {
-      jfilter[filterkey] = filterval;
-    }
+router.get('/list/users/:offset/:limit', async (req, res) => {
+  let { offset, limit } = req.params;
+  let { date0, date1, filterkey, filterval, searchkey } = req.query;
+  offset = +offset;
+  limit = +limit;
+  let jfilter = {};
+  if (filterkey && filterval) {
+    jfilter[filterkey] = filterval;
+  }
 
-    if (date0) {
-      jfilter = {
+  if (date0) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date0 && date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (searchkey) {
+    jfilter = {
+      ...jfilter,
+      email: {
+        [Op.like]: `%${searchkey}%`,
+      },
+    };
+  }
+  console.log('jfilter', jfilter);
+  db['users']
+    .findAndCountAll({
+      where: {
         ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date0 && date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (searchkey) {
-      jfilter = {
-        ...jfilter,
-        email: {
-          [Op.like]: `%${searchkey}%`,
-        },
-      };
-    }
-    console.log('jfilter', jfilter);
-    db['users']
-      .findAndCountAll({
-        where: {
-          ...jfilter,
-        },
-        order: [[orderkey, orderval]],
-        offset,
-        limit,
-        raw: true,
-      })
-      .then(async (resp) => {
-        let promises = resp.rows.map(async (el) => {
-          let { id } = el;
+      },
+      order: [['id', 'DESC']],
+      offset,
+      limit,
+      raw: true,
+    })
+    .then(async (resp) => {
+      let promises = resp.rows.map(async (el) => {
+        let { id } = el;
 
-          let [{ sum_deposit }] = await db['transactions'].findAll({
-            where: { uid: id, typestr: 'DEPOSIT' },
-            raw: true,
-            attributes: [
-              [
-                db.Sequelize.fn('SUM', db.Sequelize.col('amount')),
-                'sum_deposit',
-              ],
+        let [{ sum_deposit }] = await db['transactions'].findAll({
+          where: { uid: id, typestr: 'DEPOSIT' },
+          raw: true,
+          attributes: [
+            [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum_deposit'],
+          ],
+        });
+        el['sum_deposit'] = sum_deposit / 10 ** 6;
+        let [{ sum_withdraw }] = await db['transactions'].findAll({
+          where: { uid: id, typestr: 'WITHDRAW' },
+          raw: true,
+          attributes: [
+            [
+              db.Sequelize.fn('SUM', db.Sequelize.col('amount')),
+              'sum_withdraw',
             ],
+          ],
+        });
+        el['sum_withdraw'] = sum_withdraw / 10 ** 6;
+        el['usd_amount'] = await db['balances']
+          .findOne({ where: { uid: id, typestr: 'LIVE' }, raw: true })
+          .then((resp) => {
+            return resp.total / 10 ** 6;
           });
-          el['sum_deposit'] = sum_deposit / 10 ** 6;
-          let [{ sum_withdraw }] = await db['transactions'].findAll({
-            where: { uid: id, typestr: 'WITHDRAW' },
+        await db['userwallets']
+          .findOne({
+            where: { uid: id },
             raw: true,
-            attributes: [
-              [
-                db.Sequelize.fn('SUM', db.Sequelize.col('amount')),
-                'sum_withdraw',
-              ],
-            ],
+          })
+          .then((resp) => {
+            if (resp) {
+              el['user_wallet_address'] = resp.walletaddress;
+            }
           });
-          el['sum_withdraw'] = sum_withdraw / 10 ** 6;
-          el['usd_amount'] = await db['balances']
-            .findOne({ where: { uid: id, typestr: 'LIVE' }, raw: true })
-            .then((resp) => {
-              return resp.total / 10 ** 6;
-            });
-          await db['userwallets']
-            .findOne({
-              where: { uid: id },
+        await db['transactions']
+          .count({
+            where: {
+              uid: id,
+            },
+
+            raw: true,
+          })
+          .then((resp) => {
+            el['transactions_count'] = resp;
+          });
+
+        return el;
+      });
+      await Promise.all(promises);
+      respok(res, null, null, { data: resp });
+    });
+});
+
+router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
+  let { asset, offset, limit } = req.params;
+  let { assetId, date0, date1 } = req.query;
+  // asset = crypto / forex / stock
+  let assetList;
+  let list = [];
+  offset = +offset;
+  limit = +limit;
+  let jfilter = {};
+
+  if (date0) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date0 && date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (assetId) {
+    jfilter['assetId'] = assetId;
+  } else {
+    assetList = await db['assets'].findAll({
+      where: { groupstr: asset },
+      raw: true,
+    });
+    assetList.map((v) => {
+      list.push(v.id);
+    });
+    jfilter = { ...jfilter, assetId: { [Op.in]: list } };
+  }
+  console.log('jfilter', jfilter);
+  await db['logrounds']
+    .findAndCountAll({
+      where: {
+        ...jfilter,
+      },
+      raw: true,
+      offset,
+      limit,
+      order: [['id', 'DESC']],
+    })
+    .then(async (resp) => {
+      // console.log(resp);
+      let promises = resp.rows.map(async (el) => {
+        let {
+          startingPrice,
+          endPrice,
+          totalLowAmount,
+          totalHighAmount,
+          totalAmount,
+          expiry,
+        } = el;
+        startingPrice = Number(startingPrice);
+        endPrice = Number(endPrice);
+        if (startingPrice === endPrice) {
+          el['outcome'] = 'DRAW';
+          el['profit'] = 0;
+        } else if (startingPrice > endPrice) {
+          el['outcome'] = 'LOW';
+          await db['logfees']
+            .findAll({
+              where: { typestr: 'FEE_TO_ADMIN', bet_expiry: expiry },
               raw: true,
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')), 'sum'],
+              ],
             })
             .then((resp) => {
-              if (resp) {
-                el['user_wallet_address'] = resp.walletaddress;
-              }
+              let [{ sum }] = resp;
+              el['profit'] = (sum / 10 ** 6).toFixed(2);
             });
-          await db['transactions']
-            .count({
-              where: {
-                uid: id,
-              },
-
+        } else {
+          el['outcome'] = 'HIGH';
+          await db['logfees']
+            .findAll({
+              where: { typestr: 'FEE_TO_ADMIN', bet_expiry: expiry },
               raw: true,
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')), 'sum'],
+              ],
             })
             .then((resp) => {
-              el['transactions_count'] = resp;
+              let [{ sum }] = resp;
+              el['profit'] = (sum / 10 ** 6).toFixed(2);
             });
-
-          return el;
+        }
+        el['asset'] = await db['assets'].findOne({
+          where: { id: el.assetId },
+          raw: true,
         });
-        await Promise.all(promises);
-        respok(res, null, null, { data: resp });
-      });
-  }
-);
+        el['totalLowAmount'] = totalLowAmount / 10 ** 6;
+        el['totalHighAmount'] = totalHighAmount / 10 ** 6;
+        el['totalAmount'] = totalAmount / 10 ** 6;
 
-router.get(
-  '/betrounds/list/:asset/:offset/:limit/:orderkey/:orderval',
-  async (req, res) => {
-    let { asset, offset, limit, orderkey, orderval } = req.params;
-    let { assetId, date0, date1 } = req.query;
-    // asset = crypto / forex / stock
-    let assetList;
-    let list = [];
-    offset = +offset;
-    limit = +limit;
-    let jfilter = {};
-
-    if (date0) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date0 && date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (assetId) {
-      jfilter['assetId'] = assetId;
-    } else {
-      assetList = await db['assets'].findAll({
-        where: { groupstr: asset },
-        raw: true,
+        return el;
       });
-      assetList.map((v) => {
-        list.push(v.id);
-      });
-      jfilter = { ...jfilter, assetId: { [Op.in]: list } };
-    }
-    console.log('jfilter', jfilter);
-    await db['logrounds']
-      .findAndCountAll({
-        where: {
-          ...jfilter,
-        },
-        raw: true,
-        offset,
-        limit,
-        order: [[orderkey, orderval]],
-      })
-      .then(async (resp) => {
-        // console.log(resp);
-        let promises = resp.rows.map(async (el) => {
-          let {
-            startingPrice,
-            endPrice,
-            totalLowAmount,
-            totalHighAmount,
-            expiry,
-          } = el;
-          startingPrice = Number(startingPrice);
-          endPrice = Number(endPrice);
-          if (startingPrice === endPrice) {
-            el['outcome'] = 'DRAW';
-            el['profit'] = 0;
-          } else if (startingPrice > endPrice) {
-            el['outcome'] = 'LOW';
-            await db['logfees']
-              .findAll({
-                where: { typestr: 'FEE_TO_ADMIN', bet_expiry: expiry },
-                raw: true,
-                attributes: [
-                  [
-                    db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')),
-                    'sum',
-                  ],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-                el['profit'] = sum / 10 ** 6;
-              });
-          } else {
-            el['outcome'] = 'HIGH';
-            await db['logfees']
-              .findAll({
-                where: { typestr: 'FEE_TO_ADMIN', bet_expiry: expiry },
-                raw: true,
-                attributes: [
-                  [
-                    db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')),
-                    'sum',
-                  ],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-                el['profit'] = sum / 10 ** 6;
-              });
-          }
-          el['asset'] = await db['assets'].findOne({
-            where: { id: el.assetId },
-            raw: true,
-          });
-
-          return el;
-        });
-        await Promise.all(promises);
-        respok(res, null, null, { data: resp });
-      });
-  }
-);
+      await Promise.all(promises);
+      respok(res, null, null, { resp });
+    });
+});
 
 router.get('/asset/list/:offset/:limit', async (req, res) => {
   let { offset, limit } = req.params;
@@ -882,12 +871,12 @@ router.get('/assets', (req, res) => {
     })
     .then(async (resp) => {
       let promises = resp.map(async (el) => {
-        let { APISymbol } = el;
+        let { socketAPISymbol } = el;
         let currentPrice = await cliredisa.hget(
           'STREAM_ASSET_PRICE',
-          APISymbol
+          socketAPISymbol
         );
-        console.log(APISymbol, currentPrice);
+        // console.log(APISymbol, currentPrice);
         el['currentPrice'] = currentPrice;
       });
       await Promise.all(promises);
@@ -895,406 +884,447 @@ router.get('/assets', (req, res) => {
     });
 });
 
-router.get(
-  '/referrals/:isbranch/:type/:offset/:limit/:orderkey/:orderval',
-  async (req, res) => {
-    let { isbranch, type, offset, limit, orderkey, orderval } = req.params;
-    let { date0, date1, filterkey, filterval, searchkey } = req.query;
-    offset = +offset;
-    limit = +limit;
-    let jfilter = {};
-    if (filterkey && filterval) {
-      jfilter[filterkey] = filterval;
-    }
-    if (date0) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date0 && date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (searchkey) {
-      jfilter = {
-        ...jfilter,
-        email: {
-          [Op.like]: `%${searchkey}%`,
-        },
-      };
-    }
-    console.log('jfilter', jfilter);
-    // let jfilter2 = {};
-    // if (isadmin === 1) {
-    //   jfilter2 = {
-    //     ...jfilter2,
-    //     isadmin: 1,
-    //   };
-    // }
-    // if (isadmin === 0) {
-    //   jfilter2 = {
-    //     ...jfilter2,
-    //     isbranch: 1,
-    //   };
-    // }
-    // let refererList = [];
-    // await db['users']
-    //   .findAll({
-    //     where: { ...jfilter2 },
-    //     raw: true,
-    //   })
-    //   .then((resp) => {
-    //     resp.map((el) => {
-    //       refererList.push(el.id);
-    //     });
-    //   });
-    // console.log('refererList', refererList);
-    db['users']
-      .findAndCountAll({
-        where: {
-          isbranch,
-          isadmin: 0,
-        },
-        offset,
-        limit,
-        raw: true,
-        order: [[orderkey, orderval]],
-      })
-      .then(async (resp) => {
-        if (+isbranch === 1) {
-          let referer_user = await db['users'].findOne({
-            where: { isadmin: 1 },
-            raw: true,
-          });
-          let promises = resp.rows.map(async (el) => {
-            let { id } = el;
-            // el['referral_user'] = await db['users'].findOne({
-            //   where: { id: referral_uid },
-            //   raw: true,
-            // });
-
-            await db['betlogs']
-              .findAll({
-                where: { uid: id, type: 'LIVE' },
-                raw: true,
-                attributes: [
-                  [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-                sum = sum / 10 ** 6;
-                el['trade_amount'] = sum;
-              });
-            await db['betlogs']
-              .findAll({
-                where: { uid: id, type: 'LIVE', status: 1 },
-                raw: true,
-                attributes: [
-                  [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-                sum = sum / 10 ** 6;
-                el['profit_amount'] = sum;
-              });
-            await db['logfees']
-              .findAll({
-                where: {
-                  payer_uid: id,
-                  recipient_uid: referer_user.id,
-                },
-                raw: true,
-                attributes: [
-                  [
-                    db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')),
-                    'sum',
-                  ],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-                if (!sum) {
-                  sum = 0;
-                } else {
-                  sum = sum / 10 ** 6;
-                }
-                el['total_feeamount'] = sum.toFixed(2);
-              });
-            await db['userwallets']
-              .findOne({
-                where: { uid: id },
-                raw: true,
-              })
-              .then((resp) => {
-                if (resp) {
-                  el['wallet_address'] = resp.walletaddress;
-                }
-              });
-            if (type === 0) {
-              //withdraw
-              await db['transactions']
-                .findAll({
-                  where: { uid: id, typestr: 'WITHDRAW' },
-                  raw: true,
-                  attributes: [
-                    [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                  ],
-                })
-                .then((resp) => {
-                  let [{ sum }] = resp;
-                  el['sum_withdraw'] = sum.toFixed(2);
-                });
-            } else if (type === 1) {
-              await db['transactions']
-                .findAll({
-                  where: { uid: id, typestr: 'DEPOSIT' },
-                  raw: true,
-                  attributes: [
-                    [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                  ],
-                })
-                .then((resp) => {
-                  let [{ sum }] = resp;
-                  el['sum_deposit'] = sum.toFixed(2);
-                });
-            }
-            return el;
-          });
-          await Promise.all(promises);
-        } else if (+isbranch === 2) {
-          let referer_user_list = await findAll({
-            where: { isadmin: 2 },
-            raw: true,
-          });
-          let promises = resp.rows.map(async (el) => {
-            let { id } = el;
-            // el['referral_user'] = await db['users'].findOne({
-            //   where: { id: referral_uid },
-            //   raw: true,
-            // });
-
-            await db['betlogs']
-              .findAll({
-                where: { uid: id, type: 'LIVE' },
-                raw: true,
-                attributes: [
-                  [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-                sum = sum / 10 ** 6;
-                el['trade_amount'] = sum;
-              });
-            await db['betlogs']
-              .findAll({
-                where: { uid: id, type: 'LIVE', status: 1 },
-                raw: true,
-                attributes: [
-                  [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-                sum = sum / 10 ** 6;
-                el['profit_amount'] = sum;
-              });
-            await db['logfees']
-              .findAll({
-                where: {
-                  payer_uid: id,
-                  recipient_uid: {
-                    [Op.in]: referer_user_list,
-                  },
-                },
-                raw: true,
-                attributes: [
-                  [
-                    db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')),
-                    'sum',
-                  ],
-                ],
-              })
-              .then((resp) => {
-                let [{ sum }] = resp;
-
-                if (!sum) {
-                  sum = 0;
-                } else {
-                  sum = sum / 10 ** 6;
-                }
-                el['total_feeamount'] = sum.toFixed(2);
-              });
-            await db['userwallets']
-              .findOne({
-                where: { uid: id },
-                raw: true,
-              })
-              .then((resp) => {
-                if (resp) {
-                  el['wallet_address'] = resp.walletaddress;
-                }
-              });
-            if (type === 0) {
-              //withdraw
-              await db['transactions']
-                .findAll({
-                  where: { uid: id, typestr: 'WITHDRAW' },
-                  raw: true,
-                  attributes: [
-                    [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                  ],
-                })
-                .then((resp) => {
-                  let [{ sum }] = resp;
-                  el['sum_withdraw'] = sum.toFixed(2);
-                });
-            } else if (type === 1) {
-              await db['transactions']
-                .findAll({
-                  where: { uid: id, typestr: 'DEPOSIT' },
-                  raw: true,
-                  attributes: [
-                    [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-                  ],
-                })
-                .then((resp) => {
-                  let [{ sum }] = resp;
-                  el['sum_deposit'] = sum.toFixed(2);
-                });
-            }
-            return el;
-          });
-          await Promise.all(promises);
-        }
-
-        respok(res, null, null, { resp });
-      });
+router.get('/referrals/:isbranch/:type/:offset/:limit', async (req, res) => {
+  let { isbranch, type, offset, limit } = req.params;
+  let { date0, date1, filterkey, filterval, searchkey } = req.query;
+  offset = +offset;
+  limit = +limit;
+  let jfilter = {};
+  if (filterkey && filterval) {
+    jfilter[filterkey] = filterval;
   }
-);
-
-router.get(
-  '/transactions/:isadmin/:type/:offset/:limit/:orderkey/:orderval',
-  async (req, res) => {
-    let { isadmin, type, offset, limit, orderkey, orderval } = req.params;
-    let { date0, date1, filterkey, filterval, searchkey } = req.query;
-    offset = +offset;
-    limit = +limit;
-    let jfilter = {};
-    if (filterkey && filterval) {
-      jfilter[filterkey] = filterval;
-    }
-    if (date0) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date0 && date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (searchkey) {
-      jfilter = {
-        ...jfilter,
-        email: {
-          [Op.like]: `%${searchkey}%`,
-        },
-      };
-    }
+  if (date0) {
     jfilter = {
       ...jfilter,
-      type: +type,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+      },
     };
-    console.log('jfilter', jfilter);
-    let jfilter2 = {};
-    if (isadmin === 1) {
-      jfilter2 = {
-        ...jfilter2,
-        typestr: 'MAIN',
-      };
-    }
-    if (isadmin === 0) {
-      jfilter2 = {
-        ...jfilter2,
-        typestr: 'BRANCH',
-      };
-    }
-
-    let refererList = [];
-    await db['users']
-      .findAll({
-        where: { ...jfilter2 },
+  }
+  if (date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date0 && date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (searchkey) {
+    jfilter = {
+      ...jfilter,
+      email: {
+        [Op.like]: `%${searchkey}%`,
+      },
+    };
+  }
+  console.log('jfilter', jfilter);
+  // let jfilter2 = {};
+  // if (isadmin === 1) {
+  //   jfilter2 = {
+  //     ...jfilter2,
+  //     isadmin: 1,
+  //   };
+  // }
+  // if (isadmin === 0) {
+  //   jfilter2 = {
+  //     ...jfilter2,
+  //     isbranch: 1,
+  //   };
+  // }
+  // let refererList = [];
+  // await db['users']
+  //   .findAll({
+  //     where: { ...jfilter2 },
+  //     raw: true,
+  //   })
+  //   .then((resp) => {
+  //     resp.map((el) => {
+  //       refererList.push(el.id);
+  //     });
+  //   });
+  // console.log('refererList', refererList);
+  db['users']
+    .findAndCountAll({
+      where: {
+        isbranch,
+        // isadmin: 0,
+      },
+      offset,
+      limit,
+      raw: true,
+      // order: [['id', 'DESC']],
+    })
+    .then(async (resp) => {
+      // if (+isbranch === 1) {
+      let referer_user = await db['users'].findOne({
+        where: { isadmin: 1 },
         raw: true,
-      })
-      .then((resp) => {
-        resp.map((el) => {
-          refererList.push(el.id);
-        });
       });
+      let promises = resp.rows.map(async (el) => {
+        let { id } = el;
+        // el['referral_user'] = await db['users'].findOne({
+        //   where: { id: referral_uid },
+        //   raw: true,
+        // });
 
-    db['transactions']
-      .findAndCountAll({
-        where: {
-          ...jfilter,
-          uid: {
-            [Op.in]: refererList,
-          },
-        },
-        offset,
-        limit,
-        order: [[orderkey, orderval]],
-        raw: true,
-      })
-      .then(async (resp) => {
-        // console.log(resp);
-        let promises = resp.rows.map(async (el) => {
-          let { id, uid, typestr, amount } = el;
-          amount = amount / 10 ** 6;
-          el['amount'] = amount;
-          el['user_info'] = await db['users'].findOne({
+        await db['betlogs']
+          .findAll({
+            where: { uid: id, type: 'LIVE' },
+            raw: true,
+            attributes: [
+              [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+            ],
+          })
+          .then((resp) => {
+            let [{ sum }] = resp;
+            sum = sum / 10 ** 6;
+            el['trade_amount'] = sum;
+          });
+        await db['betlogs']
+          .findAll({
+            where: { uid: id, type: 'LIVE', status: 1 },
+            raw: true,
+            attributes: [
+              [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+            ],
+          })
+          .then((resp) => {
+            let [{ sum }] = resp;
+            sum = sum / 10 ** 6;
+            el['profit_amount'] = sum;
+          });
+        await db['logfees']
+          .findAll({
             where: {
-              id: uid,
+              payer_uid: id,
+              recipient_uid: referer_user.id,
             },
             raw: true,
+            attributes: [
+              [db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')), 'sum'],
+            ],
+          })
+          .then((resp) => {
+            let [{ sum }] = resp;
+            if (!sum) {
+              sum = 0;
+            } else {
+              sum = sum / 10 ** 6;
+            }
+            el['total_feeamount'] = sum.toFixed(2);
           });
+        await db['userwallets']
+          .findOne({
+            where: { uid: id },
+            raw: true,
+          })
+          .then((resp) => {
+            if (resp) {
+              el['wallet_address'] = resp.walletaddress;
+            }
+          });
+        if (type === 0) {
+          //withdraw
+          await db['transactions']
+            .findAll({
+              where: { uid: id, typestr: 'WITHDRAW' },
+              raw: true,
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+              ],
+            })
+            .then((resp) => {
+              let [{ sum }] = resp;
+              el['sum_withdraw'] = sum.toFixed(2);
+            });
+        } else if (type === 1) {
+          await db['transactions']
+            .findAll({
+              where: { uid: id, typestr: 'DEPOSIT' },
+              raw: true,
+              attributes: [
+                [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+              ],
+            })
+            .then((resp) => {
+              let [{ sum }] = resp;
+              el['sum_deposit'] = sum.toFixed(2);
+            });
+        }
+        return el;
+      });
+      await Promise.all(promises);
+      // } else if (+isbranch === 2) {
+      //   let referer_user_list = await findAll({
+      //     where: { isadmin: 2 },
+      //     raw: true,
+      //   });
+      //   let promises = resp.rows.map(async (el) => {
+      //     let { id } = el;
+      //     // el['referral_user'] = await db['users'].findOne({
+      //     //   where: { id: referral_uid },
+      //     //   raw: true,
+      //     // });
+
+      //     await db['betlogs']
+      //       .findAll({
+      //         where: { uid: id, type: 'LIVE' },
+      //         raw: true,
+      //         attributes: [
+      //           [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+      //         ],
+      //       })
+      //       .then((resp) => {
+      //         let [{ sum }] = resp;
+      //         sum = sum / 10 ** 6;
+      //         el['trade_amount'] = sum;
+      //       });
+      //     await db['betlogs']
+      //       .findAll({
+      //         where: { uid: id, type: 'LIVE', status: 1 },
+      //         raw: true,
+      //         attributes: [
+      //           [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+      //         ],
+      //       })
+      //       .then((resp) => {
+      //         let [{ sum }] = resp;
+      //         sum = sum / 10 ** 6;
+      //         el['profit_amount'] = sum;
+      //       });
+      //     await db['logfees']
+      //       .findAll({
+      //         where: {
+      //           payer_uid: id,
+      //           recipient_uid: {
+      //             [Op.in]: referer_user_list,
+      //           },
+      //         },
+      //         raw: true,
+      //         attributes: [
+      //           [
+      //             db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')),
+      //             'sum',
+      //           ],
+      //         ],
+      //       })
+      //       .then((resp) => {
+      //         let [{ sum }] = resp;
+
+      //         if (!sum) {
+      //           sum = 0;
+      //         } else {
+      //           sum = sum / 10 ** 6;
+      //         }
+      //         el['total_feeamount'] = sum.toFixed(2);
+      //       });
+      //     await db['userwallets']
+      //       .findOne({
+      //         where: { uid: id },
+      //         raw: true,
+      //       })
+      //       .then((resp) => {
+      //         if (resp) {
+      //           el['wallet_address'] = resp.walletaddress;
+      //         }
+      //       });
+      //     if (type === 0) {
+      //       //withdraw
+      //       await db['transactions']
+      //         .findAll({
+      //           where: { uid: id, typestr: 'WITHDRAW' },
+      //           raw: true,
+      //           attributes: [
+      //             [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+      //           ],
+      //         })
+      //         .then((resp) => {
+      //           let [{ sum }] = resp;
+      //           el['sum_withdraw'] = sum.toFixed(2);
+      //         });
+      //     } else if (type === 1) {
+      //       await db['transactions']
+      //         .findAll({
+      //           where: { uid: id, typestr: 'DEPOSIT' },
+      //           raw: true,
+      //           attributes: [
+      //             [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+      //           ],
+      //         })
+      //         .then((resp) => {
+      //           let [{ sum }] = resp;
+      //           el['sum_deposit'] = sum.toFixed(2);
+      //         });
+      //     }
+      // return el;
+      // });
+      // await Promise.all(promises);
+      // }
+
+      respok(res, null, null, { resp });
+    });
+});
+
+router.get('/transactions/:isbranch/:type/:offset/:limit', async (req, res) => {
+  let { isbranch, type, offset, limit } = req.params;
+  let { date0, date1, filterkey, filterval, searchkey } = req.query;
+  offset = +offset;
+  limit = +limit;
+  let jfilter = {};
+  if (filterkey && filterval) {
+    jfilter[filterkey] = filterval;
+  }
+  if (date0) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date0 && date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (searchkey) {
+    jfilter = {
+      ...jfilter,
+      email: {
+        [Op.like]: `%${searchkey}%`,
+      },
+    };
+  }
+  jfilter = {
+    ...jfilter,
+    typestr: type,
+  };
+  console.log('jfilter', jfilter);
+  // let jfilter2 = {};
+  // if (isadmin === 1) {
+  //   jfilter2 = {
+  //     ...jfilter2,
+  //     typestr: 'MAIN',
+  //   };
+  // }
+  // if (isadmin === 0) {
+  //   jfilter2 = {
+  //     ...jfilter2,
+  //     typestr: 'BRANCH',
+  //   };
+  // }
+
+  let userList = [];
+
+  await db['users']
+    .findAll({
+      where: { isbranch },
+      raw: true,
+    })
+    .then((resp) => {
+      resp.map((el) => {
+        let { id } = el;
+        userList.push(id);
+      });
+    });
+  // await db['users']
+  //   .findAndCountAll({
+  //     where: { isbranch },
+  //     raw: true,
+  //   })
+  //   .then((resp) => {
+  //     let {rows, count} = resp
+  //     let promises = rows.map(async (el) => {
+  //       let {id} = el;
+  //       await db['balances'].findOne({
+  //         where: {uid: id, typestr: 'LIVE'},
+  //         raw: true,
+  //       }).then((resp) => {
+  //         el['usd_amount'] = resp.total / 10 ** 6;
+  //       })
+  //       await db['userwallets'].findOne({
+  //         where: {uid: id},
+  //         raw:true,
+  //       }).then((resp) => {
+  //         el['user_wallet_address'] = resp.walletaddress;
+  //       })
+  //     })
+  //   });
+
+  db['transactions']
+    .findAndCountAll({
+      where: {
+        ...jfilter,
+        uid: {
+          [Op.in]: userList,
+        },
+      },
+      offset,
+      limit,
+      order: [['id', 'DESC']],
+      raw: true,
+    })
+    .then(async (resp) => {
+      // console.log(resp);
+      console.log(typeof isbranch);
+      let promises = resp.rows.map(async (el) => {
+        let { id, uid, typestr, amount, senderaddr, rxaddr } = el;
+        if (isbranch === '0') {
+          el['method'] = 'Tether';
+          // if (type === 'DEPOSIT') {
+          //   el['senderaddr'] = senderaddr;
+          // } else if (type === 'WITHDRAW') {
+          //   el['rxaddr'] = rxaddr;
+          // }
+          // if (type === 'DEPOSIT') {
+          //   await db['transactions']
+          //     .findAll({
+          //       where: {
+          //         typestr: type,
+          //         uid,
+          //         id: {
+          //           [Op.lte]: id,
+          //         },
+          //       },
+          //       raw: true,
+          //       attributes: [
+          //         [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+          //       ],
+          //     })
+          //     .then((resp) => {
+          //       let [{ sum }] = resp;
+          //       sum = sum / 10 ** 6;
+          //       el['cumulative_amount'] = sum;
+          //     });
+          // }
+          // if (type === 'WITHDRAW') {
+
+          // }
           await db['transactions']
             .findAll({
               where: {
-                typestr,
+                typestr: type,
                 uid,
                 id: {
                   [Op.lte]: id,
@@ -1310,94 +1340,150 @@ router.get(
               sum = sum / 10 ** 6;
               el['cumulative_amount'] = sum;
             });
-          el['user_balance'] = await db['balances']
-            .findOne({
-              where: {
-                uid,
-                typestr: 'LIVE',
-              },
-              raw: true,
-            })
-            .then((resp) => {
-              resp.total = resp.total / 10 ** 6;
-              resp.avail = resp.avail / 10 ** 6;
-              return resp;
-            });
-          el['wallet_address'] = await db['userwallets']
-            .findOne({
-              where: { uid },
-              raw: true,
-            })
-            .then((resp) => {
-              return resp.walletaddress;
-            });
-        });
-        await Promise.all(promises);
-        respok(res, null, null, { resp });
-      });
-  }
-);
+        } else if (isbranch === '1') {
+          if (type === 'DEPOSIT') {
+            el['method'] = 'Yuan';
+            await db['transactions']
+              .findAll({
+                where: {
+                  typestr: type,
+                  uid,
+                  id: {
+                    [Op.lte]: id,
+                  },
+                },
+                raw: true,
+                attributes: [
+                  [
+                    db.Sequelize.fn('SUM', db.Sequelize.col('localeAmount')),
+                    'sum',
+                  ],
+                ],
+              })
+              .then((resp) => {
+                let [{ sum }] = resp;
+                sum = sum / 10 ** 6;
+                el['cumulative_amount'] = sum;
+              });
+          }
+          if (type === 'WITHDRAW') {
+            el['method'] = 'Tether';
+            await db['transactions']
+              .findAll({
+                where: {
+                  typestr: type,
+                  uid,
+                  id: {
+                    [Op.lte]: id,
+                  },
+                },
+                raw: true,
+                attributes: [
+                  [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+                ],
+              })
+              .then((resp) => {
+                let [{ sum }] = resp;
+                sum = sum / 10 ** 6;
+                el['cumulative_amount'] = sum;
+              });
+          }
+        }
 
-router.get(
-  '/notifications/:offset/:limit/:orderkey/:orderval',
-  async (req, res) => {
-    let { offset, limit, orderkey, orderval } = req.params;
-    let { date0, date1, filterkey, filterval, searchkey } = req.query;
-    offset = +offset;
-    limit = +limit;
-    let jfilter = {};
-    if (filterkey && filterval) {
-      jfilter[filterkey] = filterval;
-    }
-    if (date0) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (date0 && date1) {
-      jfilter = {
-        ...jfilter,
-        createdat: {
-          [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
-          [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
-        },
-      };
-    }
-    if (searchkey) {
-      jfilter = {
-        ...jfilter,
-        email: {
-          [Op.like]: `%${searchkey}%`,
-        },
-      };
-    }
-    console.log('jfilter', jfilter);
-    db['notifications']
-      .findAll({
-        where: {
-          ...jfilter,
-        },
-        offset,
-        limit,
-        order: [[orderkey, orderval]],
-        raw: true,
-      })
-      .then((resp) => {
-        respok(res, null, null, { resp });
+        amount = amount / 10 ** 6;
+        el['amount'] = amount;
+        el['user_info'] = await db['users'].findOne({
+          where: {
+            id: uid,
+          },
+          raw: true,
+        });
+
+        await db['balances']
+          .findOne({
+            where: {
+              uid,
+              typestr: 'LIVE',
+            },
+            raw: true,
+          })
+          .then((resp) => {
+            el['usd_amount'] = (resp.total / 10 ** 6).toFixed(2);
+            // resp.total =
+            // resp.avail = (resp.avail / 10 ** 6).toFixed(2);
+            // return resp;
+          });
+        el['wallet_address'] = await db['userwallets']
+          .findOne({
+            where: { uid },
+            raw: true,
+          })
+          .then((resp) => {
+            return resp.walletaddress;
+          });
       });
+      await Promise.all(promises);
+      respok(res, null, null, { resp });
+    });
+});
+
+router.get('/notifications/:offset/:limit', async (req, res) => {
+  let { offset, limit } = req.params;
+  let { date0, date1, filterkey, filterval, searchkey } = req.query;
+  offset = +offset;
+  limit = +limit;
+  let jfilter = {};
+  if (filterkey && filterval) {
+    jfilter[filterkey] = filterval;
   }
-);
+  if (date0) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date0 && date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (searchkey) {
+    jfilter = {
+      ...jfilter,
+      email: {
+        [Op.like]: `%${searchkey}%`,
+      },
+    };
+  }
+  console.log('jfilter', jfilter);
+  db['notifications']
+    .findAll({
+      where: {
+        ...jfilter,
+      },
+      offset,
+      limit,
+      // order: [[orderkey, orderval]],
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
 
 router.post('/enroll/notification', upload.single('img'), (req, res) => {
   let { title, content, writer, enrollDate, exposure } = req.body;

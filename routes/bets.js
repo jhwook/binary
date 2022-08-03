@@ -137,25 +137,22 @@ router.post(
         .set('second', 0);
       let t = await db.sequelize.transaction();
       try {
-        let bets = await db['bets']
-          .create(
-            {
-              uuid: demo_uuid,
-              assetId: assetId,
-              amount: amount,
-              starting: starting.unix(),
-              expiry: expiry.unix(),
-              side: side,
-              type: 'DEMO',
-              startingPrice: currentPrice,
-            },
-            {
-              transaction: t,
-            }
-          )
-          .then((resp) => {
-            console.log(resp);
-          });
+        let bets = await db['bets'].create(
+          {
+            uuid: demo_uuid,
+            assetId: assetId,
+            amount: amount,
+            starting: starting.unix(),
+            expiry: expiry.unix(),
+            side: side,
+            type: 'DEMO',
+            startingPrice: currentPrice,
+          },
+          {
+            transaction: t,
+          }
+        );
+
         await db['balances'].increment(
           'avail',
           {
@@ -259,7 +256,7 @@ router.get('/my/:type', auth, async (req, res) => {
         })
         .then(async (respdata) => {
           let promises = respdata.map(async (el) => {
-            let { assetId, amount, diffRate, status, expiry } = el;
+            let { assetId, amount, diffRate, status, starting, expiry } = el;
             if (status === 0) {
               amount = amount / 10 ** 6;
               let profit_amount = amount.toFixed(2);
@@ -282,7 +279,8 @@ router.get('/my/:type', auth, async (req, res) => {
               .findOne({
                 where: {
                   assetId,
-                  expiryTime: { [Op.gte]: expiry - 2, [Op.lte]: expiry + 62 },
+                  expiryTime: { [Op.gte]: expiry, [Op.lte]: expiry },
+                  startingTime: { [Op.gte]: starting, [Op.lte]: starting },
                 },
                 raw: true,
               })
@@ -339,7 +337,7 @@ router.get('/my/:type', auth, async (req, res) => {
       let respdata = await db['betlogs']
         .findAll({
           where: {
-            uid: id,
+            uuid: demo_uuid,
           },
           attributes: [
             [
@@ -379,7 +377,7 @@ router.get('/my/:type', auth, async (req, res) => {
         })
         .then(async (respdata) => {
           let promises = respdata.map(async (el) => {
-            let { assetId, amount, diffRate, status, expiry } = el;
+            let { assetId, amount, diffRate, status, starting, expiry } = el;
             if (status === 0) {
               amount = amount / 10 ** 6;
               let profit_amount = amount.toFixed(2);
@@ -402,7 +400,8 @@ router.get('/my/:type', auth, async (req, res) => {
               .findOne({
                 where: {
                   assetId,
-                  expiryTime: { [Op.gte]: expiry - 2, [Op.lte]: expiry + 62 },
+                  expiryTime: { [Op.gte]: expiry, [Op.lte]: expiry },
+                  startingTime: { [Op.gte]: starting, [Op.lte]: starting },
                 },
                 raw: true,
               })

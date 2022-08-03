@@ -11,9 +11,9 @@ const cliredisa = require('async-redis').createClient();
 
 var router = express.Router();
 
-router.get('/', function (req, res, next) {
-  res.send('respond with a resource');
-});
+// router.get('/', function (req, res, next) {
+//   res.send('respond with a resource');
+// });
 
 router.get('/list', softauth, async (req, res) => {
   let id;
@@ -136,9 +136,9 @@ router.post('/add/:type', (req, res) => {
   }
 });
 
-router.patch('/setting/:assetId', adminauth, async (req, res) => {
-  let { assetId } = req.params;
-  let { imgurl, active } = req.query;
+router.patch('/setting/:assetId/:active', async (req, res) => {
+  let { assetId, active } = req.params;
+  let { imgurl } = req.query;
   let jfilter = {};
   if (imgurl) {
     jfilter['imgurl'] = imgurl;
