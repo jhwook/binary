@@ -11,7 +11,7 @@ exports.auth = (req, res, next) => {
           throw err;
         }
         req.decoded = decoded;
-        console.log(req.decoded);
+        // console.log(req.decoded);
         return next();
       }
     );

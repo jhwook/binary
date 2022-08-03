@@ -31,6 +31,7 @@ router.patch('/demo/fund/:amount', auth, async (req, res) => {
     .then((result) => {
       console.log(+result.total + amount);
       // if (+result.total + amount > 1000000000000000) {
+
       //   resperr(res, 'TOO-MUCH-DEMO-BALANCE');
       // } else {
       result.increment(['avail', 'total'], { by: amount }).then((_) => {
@@ -64,7 +65,15 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
   } = req.body;
   let { id, isadmin, isbranch } = req.decoded;
   console.log('HELLO');
-  amount *= 1000000;
+  console.log('BODY', req.body);
+
+  // amount *= 1000000;
+  // if (type.toUpperCase() === 'WITHDRAW') {
+  //   amount *= 1000000;
+  // } else if (type.toUpperCase() === 'DEPOSIT') {
+  //   amount *= 1000000;
+  // }
+
   if (!id) {
     resperr(res, 'NOT-LOGGED-IN');
     return;
@@ -81,7 +90,7 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
       console.log(amount);
       console.log(balance);
       if (+amount > +balance.avail) {
-        console.log('HELLO');
+        console.log('NOT-ENOUGH-BALANCE');
         resperr(res, 'NOT-ENOUGH-BALANCE');
         return;
         break;
@@ -105,7 +114,11 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
 
       break;
     case 'DEPOSIT':
-      if (tokentype == 'USDC' || tokentype == 'USDT') {
+      if (
+        tokentype == 'USDC' ||
+        tokentype == 'USDT' ||
+        tokentype == 'USDT_BINOPT'
+      ) {
         if (!txhash) {
           resperr(res, 'TXHASH-ISSUE');
           return;
@@ -118,6 +131,7 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
           typestr: 'DEPOSIT',
           type: 1,
           txhash: txhash,
+          senderaddr,
         });
         respok(res, 'SUBMITED');
 
@@ -130,7 +144,7 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
           amount,
         });
       } else {
-        //초ㅇ팢ㄴ
+        // 총판
         let referer = await db['referrals'].findOne({
           where: {
             referral_uid: id,

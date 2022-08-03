@@ -11,7 +11,7 @@ module.exports = (io) => {
         process.env.JWT_SECRET,
         function (err, decoded) {
           if (err) return next(new Error('Authentication error'));
-          console.log('successful', decoded);
+          // console.log('successful', decoded);
           socket.decoded = decoded;
           next();
         }
@@ -20,11 +20,11 @@ module.exports = (io) => {
       console.log('Error:: connection');
       // next(new Error('Authentication error'));
       socket.decoded = false;
-      console.log('socket.decoded', socket.decoded);
+      // console.log('socket.decoded', socket.decoded);
       next();
     }
   }).on('connection', async (socket) => {
-    console.log(socket.decoded, ' / ', socket.id);
+    // console.log(socket.decoded, ' / ', socket.id);
     // const asyncBlock = async () => {
     //   await client.set("string key", "string val");
     //   const value = await client.get("string key");

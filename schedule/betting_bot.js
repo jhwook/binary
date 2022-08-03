@@ -17,13 +17,13 @@ const { ASSETID_REDIS_SYMBOL } = require('../utils/ticker_symbol');
 
 const betbot = async () => {
   let now = moment().format('MM/DD HH:mm:ss');
-  let timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
+  let expiry_unix = moment().add(2, 'minutes').set('second', 0).unix();
 
-  let now_unix = moment().startOf('minute').unix();
+  let starting_unix = moment().add(1, 'minutes').set('second', 0).unix();
 
   let assetList = await db['assets']
     .findAll({
-      where: { active: 1 },
+      where: { id: 1, active: 1 },
       raw: true,
     })
     .then((resp) => {
@@ -42,8 +42,8 @@ const betbot = async () => {
             uid: uid_list[i],
             assetId: id,
             amount,
-            starting: now_unix,
-            expiry: timenow_unix,
+            starting: starting_unix,
+            expiry: expiry_unix,
             side,
             type: 'LIVE',
             startingPrice: currentPrice,

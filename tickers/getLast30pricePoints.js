@@ -5,38 +5,44 @@ const cliredisa = require('async-redis').createClient();
 const moment = require('moment');
 
 let sec = 0;
-const get30secPrice = async (assetId, expiry, i, temp) => {
-  await db['assets']
-    .findOne({
-      where: { active: 1, id: assetId },
-      raw: true,
-    })
-    .then(async (resp) => {
-      let { name, dispSymbol, socketAPISymbol } = resp;
-      let currentPrice = await cliredisa.hget(
-        'STREAM_ASSET_PRICE',
-        socketAPISymbol
-      );
-      if (temp[name].length) {
-        temp[name].push(currentPrice);
-      } else {
-        temp[name] = [currentPrice];
-      }
+let jNpoints = {};
+const get30secPrice = async (assetId, expiry, starting, i, temp) => {
+  return new Promise((resolve, reject) => {
+    db['assets']
+      .findOne({
+        where: { active: 1, id: assetId },
+        raw: true,
+      })
+      .then(async (resp) => {
+        let { name, dispSymbol, socketAPISymbol } = resp;
+        let currentPrice = await cliredisa.hget(
+          'STREAM_ASSET_PRICE',
+          socketAPISymbol
+        );
 
-      if (i === 29) {
-        let periodPrice = JSON.stringify(temp[name]);
-        db['tickers'].create({
-          assetId,
-          name,
-          symbol: dispSymbol,
-          periodPrice,
-          expiryTime: expiry,
-        });
-        temp = {};
-      }
-      console.log('temp', temp);
-      return temp;
-    });
+        if (temp[name] && temp[name].length) {
+          temp[name].push(currentPrice);
+        } else {
+          temp[name] = [currentPrice];
+        }
+
+        if (i === 29) {
+          let periodPrice = JSON.stringify(temp[name]);
+          db['tickers'].create({
+            assetId,
+            name,
+            symbol: dispSymbol,
+            periodPrice,
+            expiryTime: expiry,
+            startingTime: starting,
+          });
+          temp = {};
+        }
+        // console.log('temp', temp);
+        //      return temp;
+        resolve(temp);
+      });
+  });
 };
 
 const bettingHistory = (assetId, starting, expiry) => {
@@ -48,9 +54,12 @@ const bettingHistory = (assetId, starting, expiry) => {
   for (let i = 0; i < 30; i++) {
     let timeout = Number(i * dur * 1000);
 
-    setTimeout(async () => {
-      temp = await get30secPrice(assetId, expiry, i, temp);
+    setTimeout(async (_) => {
+      temp = await get30secPrice(assetId, expiry, starting, i, temp);
     }, timeout);
+    /**     setTimeout(async () => {
+      temp = await get30secPrice(assetId, expiry, i, temp);
+    }, timeout); */
   }
 };
 

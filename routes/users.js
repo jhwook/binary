@@ -538,6 +538,11 @@ router.post('/login/:type', async (req, res) => {
       where: { email: email },
       raw: true,
     });
+
+    if (findUser.active === 0) {
+      resperr(res, 'ACCESS-NOT-ALLOWED');
+      return;
+    }
     if (findUser) {
       if (findUser.oauth_type == 0) {
         //respok and lead to login
@@ -593,7 +598,15 @@ router.post('/login/:type', async (req, res) => {
       resperr(res, 'INVALID-DATA');
       return;
     }
-    let emailChk = await db['users'].findOne({ where: { email: email } });
+    let emailChk = await db['users'].findOne({
+      where: { email: email },
+      raw: true,
+    });
+
+    if (emailChk && emailChk.active === 0) {
+      resperr(res, 'ACCESS-NOT-ALLOWED');
+      return;
+    }
     if (!emailChk) {
       resperr(res, 'EMAIL-DOESNT-EXIST');
       return;
@@ -613,6 +626,10 @@ router.post('/login/:type', async (req, res) => {
       where: { phone, countryNum },
       raw: true,
     });
+    if (phoneChk.active === 0) {
+      resperr(res, 'ACCESS-NOT-ALLOWED');
+      return;
+    }
     if (!phoneChk) {
       resperr(res, 'PHONE-NUMBER-DOESNT-EXIST');
       return;
@@ -1196,7 +1213,7 @@ router.get(
           el['received_amount'] = (feeamount / 10 ** 6).toFixed(2);
           el['received_percent'] = 2.5;
           el['using'] = (betamount / 10 ** 6).toFixed(2);
-          el['profit'] = (feeamount / 10 ** 6 / 2.5).toFixed(2);
+          el['profit'] = (feeamount / 10 ** 6 / 0.025).toFixed(2);
         });
         await Promise.all(promises);
         respok(res, null, null, { resp });

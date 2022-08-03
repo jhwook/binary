@@ -51,6 +51,10 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.INTEGER(11).UNSIGNED,
         allowNull: true,
       },
+      betId: {
+        type: DataTypes.INTEGER(11).UNSIGNED,
+        allowNull: true,
+      },
     },
     {
       sequelize,

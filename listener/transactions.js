@@ -12,6 +12,9 @@ module.exports = (io, socket) => {
     let { id, wallet } = socket.decoded;
     let { type, txId } = data;
 
+    console.log('type', type);
+    console.log('id', id);
+
     await watchTransfers(wallet, type, id, txId, socket);
   });
 
@@ -34,7 +37,7 @@ module.exports = (io, socket) => {
             nest: true,
           },
         ],
-
+        order: [['id', 'DESC']],
         nest: true,
         raw: true,
       });
@@ -55,7 +58,7 @@ module.exports = (io, socket) => {
             nest: true,
           },
         ],
-
+        order: [['id', 'DESC']],
         nest: true,
         raw: true,
       });
