@@ -68,7 +68,7 @@ const withdraw = async (jdata) => {
             } else {
               console.log(hash);
               await db['balances'].increment(['total', 'avail'], {
-                by: -1 * amount,
+                by: -1 * amount * 10 ** 6,
                 where: { uid: userid, typestr: 'LIVE' },
               });
               await db['transactions'].update(

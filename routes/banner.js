@@ -43,11 +43,35 @@ router.post(
       });
   }
 );
+// router.post('/level', upload.single('img'), async (req, res) => {
+//   // let {id} = req.decoded
+//   const imgfile = req.file;
+//   console.log(req.file);
+
+//   // db['banners']
+//   //   .create({
+//   //     pc_imageurl: `${WEB_URL}/banners/${pc[0].filename}`,
+//   //     mobile_imageurl: `${WEB_URL}/banners/${mobile[0].filename}`,
+//   //     startDate: date0,
+//   //     endDate: date1,
+//   //     exposure,
+//   //     exposure_posiiton,
+//   //     status,
+//   //     // description,
+//   //     // type,
+//   //     title,
+//   //     external_link,
+//   //     // active,
+//   //   })
+//   //   .then((_) => {
+//   //     respok(res, 'OK');
+//   //   });
+// });
 
 router.get('/', async (req, res) => {
   await db['banners']
     .findAndCountAll({
-      where: { exposure: 1 },
+      // where: { exposure: 1 },
       raw: true,
     })
     .then((resp) => {
@@ -214,7 +238,7 @@ router.patch(
 );
 
 //EditBanner
-router.put('/edit_banner/:id/:exposure', async (req, res) => {
+router.patch('/edit_banner/:id/:exposure', async (req, res) => {
   let { id, exposure } = req.params;
 
   db['banners'].findOne({ where: { id } }).then((_) => {
@@ -226,7 +250,6 @@ router.put('/edit_banner/:id/:exposure', async (req, res) => {
         {
           where: {
             id,
-            active: 1,
           },
         }
       )
