@@ -50,7 +50,7 @@ const closeTx = async (jargs) => {
               .then((_) => {
                 db['balances']
                   .increment(['total', 'avail'], {
-                    by: amount,
+                    by: amount * 10 ** 6,
                     where: { uid: userid, typestr: 'LIVE' },
                   })
                   .then((_) => {

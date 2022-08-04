@@ -13,6 +13,7 @@ const { upload } = require('../utils/multer');
 const { web3 } = require('../configs/configweb3');
 const WEB_URL = 'https://options1.net/resource';
 const { I_LEVEL } = require('../configs/userlevel');
+const axios = require('axios');
 
 var router = express.Router();
 async function createJWT(jfilter) {
@@ -82,6 +83,17 @@ async function createJWT(jfilter) {
     ...userinfo,
   };
 }
+router.get('/exchange_rate', async (req, res) => {
+  let { symbol } = req.query;
+  await axios
+    .get(
+      `https://api.twelvedata.com/exchange_rate?symbol=${symbol}&apikey=c092ff5093bf4eef83897889e96b3ba7`
+    )
+    .then((resp) => {
+      // console.log(resp);
+      respok(res, null, null, resp.data);
+    });
+});
 
 router.post('/notification', (req, res) => {
   let {} = req.body;
@@ -240,7 +252,7 @@ router.patch('/toggle/:tablename/:id/:active', (req, res) => {
     });
 });
 
-router.get('/sum/rows/:tablename/:fieldname', adminauth, async (req, res) => {
+router.get('/sum/rows/:tablename/:fieldname', async (req, res) => {
   let startDate = moment().startOf('days').format('YYYY-MM-DD HH:mm:ss');
   let endDate = moment()
     .startOf('days')
@@ -252,6 +264,9 @@ router.get('/sum/rows/:tablename/:fieldname', adminauth, async (req, res) => {
     req.query;
   let { searchkey } = req.query;
   let jfilter = {};
+  if (filterkey && filterval) {
+    jfilter[filterkey] = filterval;
+  }
   // jfilter[fieldname] = fieldval;
 
   console.log('req.query', req.query);
@@ -279,9 +294,85 @@ router.get('/sum/rows/:tablename/:fieldname', adminauth, async (req, res) => {
     })
     .then((resp) => {
       // console.log(resp); //[ { sum: '176555000000' } ]
+      let [{ sum }] = resp.rows;
+      if (tablename !== 'transactions') {
+        sum = sum / 10 ** 6;
+      }
+
+      let count = resp.count;
+      respok(res, null, null, { resp: { count, sum } });
+    });
+});
+
+router.get('/count/rows/:tablename/:col', async (req, res) => {
+  let startDate = moment().startOf('days').format('YYYY-MM-DD HH:mm:ss');
+  let endDate = moment()
+    .startOf('days')
+    .add(1, 'days')
+    .format('YYYY-MM-DD HH:mm:ss');
+
+  let { tablename, col } = req.params;
+  let { itemdetail, userdetail, filterkey, filterval, nettype, date0, date1 } =
+    req.query;
+  let { searchkey } = req.query;
+  let jfilter = {};
+  // jfilter[fieldname] = fieldval;
+
+  console.log('req.query', req.query);
+
+  if (date0) {
+    startDate = moment(date0).format('YYYY-MM-DD HH:mm:ss');
+  }
+  if (date1) {
+    endDate = moment(date1).format('YYYY-MM-DD HH:mm:ss');
+  }
+
+  db[tablename]
+    .count({
+      where: {
+        ...jfilter,
+        createdat: {
+          [Op.gte]: startDate,
+          [Op.lte]: endDate,
+        },
+      },
+      // attributes: [
+      //   [db.Sequelize.fn('COUNT', db.Sequelize.col(fieldname)), 'count'],
+      // ],
+      col: col,
+      raw: true,
+    })
+    .then((resp) => {
+      // console.log(resp); //[ { sum: '176555000000' } ]
       respok(res, null, null, { data: resp });
     });
 });
+
+router.get('/count/visit', (req, res) => {
+  let jfilter = {};
+  let start_date = moment().startOf('days');
+  let end_date = moment().endOf('days');
+
+  db['loginhistories']
+    .count({
+      where: {
+        createdat: {
+          [Op.gte]: start_date.format('YYYY-MM-DD HH:mm:ss'),
+          [Op.lte]: end_date.format('YYYY-MM-DD HH:mm:ss'),
+        },
+      },
+      raw: true,
+      // attributes: [
+      //   [db.Sequelize.fn('COUNT', db.Sequelize.col('uid')), 'visit_count'],
+      // ],
+      distinct: true,
+      col: 'uid',
+    })
+    .then((resp) => {
+      respok(res, null, null, { count: resp });
+    });
+});
+
 router.get('/userinfo/:id', async (req, res) => {
   let { id } = req.params;
   await db['users']
@@ -648,31 +739,6 @@ router.get('/asset/list/:offset/:limit', async (req, res) => {
     });
 });
 
-router.get('/count/visit', (req, res) => {
-  let jfilter = {};
-  let start_date = moment().startOf('days');
-  let end_date = moment().endOf('days');
-
-  db['loginhistories']
-    .count({
-      where: {
-        createdat: {
-          [Op.gte]: start_date.format('YYYY-MM-DD HH:mm:ss'),
-          [Op.lte]: end_date.format('YYYY-MM-DD HH:mm:ss'),
-        },
-      },
-      raw: true,
-      // attributes: [
-      //   [db.Sequelize.fn('COUNT', db.Sequelize.col('uid')), 'visit_count'],
-      // ],
-      distinct: true,
-      col: 'uid',
-    })
-    .then((resp) => {
-      respok(res, null, null, { count: resp });
-    });
-});
-
 router.get('/branch/:offset/:limit/:orderkey/:orderval', async (req, res) => {
   let { offset, limit, orderkey, orderval } = req.params;
   let { date0, date1, filterkey, filterval, searchkey } = req.query;
@@ -726,6 +792,81 @@ router.get('/branch/:offset/:limit/:orderkey/:orderval', async (req, res) => {
       raw: true,
     })
     .then((resp) => {});
+});
+
+router.patch('/levels/setting', async (req, res) => {
+  let levels = ['BRONZE', 'SILVER', 'GOLD', 'DIAMOND'];
+  let { basepoint0, basepoint1, basepoint2, basepoint3 } = req.body;
+  let basepoints = [basepoint0, basepoint1, basepoint2, basepoint3];
+  console.log(req.body);
+  for (let i = 0; i <= 3; i++) {
+    let level_ = levels[i];
+    let basepoint_ = basepoints[i];
+    db['levelsettings'].update(
+      { basepoint: basepoint_ },
+      { where: { levelstr: level_ } }
+    );
+  }
+  respok(res, 'OK');
+});
+
+router.patch('/fee/setting/:level', async (req, res) => {
+  let levels = ['BRONZE', 'SILVER', 'GOLD', 'DIAMOND'];
+  let { value } = req.body;
+  let { level } = req.params;
+
+  value = value * 100;
+
+  db['feesettings']
+    .update(
+      { value_: value },
+      { where: { key_: `FEE_TO_REFERER_${levels[level]}` } }
+    )
+    .then((resp) => {
+      respok(res, 'OK');
+    });
+});
+
+// router.patch('/fee/setting/all', async (req, res) => {
+//   let {} = req.body;
+
+//   db['feesetting'].update({},{})
+// })
+
+router.get('/levels', async (req, res) => {
+  let dispLevelStr = ['Bronze', 'Silver', 'Gold', 'Diamond'];
+  await db['levelsettings'].findAll({ raw: true }).then(async (resp) => {
+    let level_user_count = [0, 0, 0, 0];
+    let promises = resp.map(async (el) => {
+      let { levelstr, level } = el;
+
+      await db['feesettings']
+        .findOne({
+          where: { key_: `FEE_TO_REFERER_${levelstr}` },
+          raw: true,
+        })
+        .then((resp) => {
+          el['fee'] = resp.value_ / 100;
+        });
+      await db['users']
+        .findAll({
+          where: { level },
+          raw: true,
+        })
+        .then((resp) => {
+          resp.forEach((el) => {
+            level_user_count[level] += 1;
+          });
+
+          el['user_count'] = level_user_count[level];
+        });
+      el['levelstr_disp'] = dispLevelStr[level];
+      // result[I_LEVEL[level]] = el;
+    });
+    await Promise.all(promises);
+
+    respok(res, null, null, { resp });
+  });
 });
 
 router.get('/user/levels', async (req, res) => {
@@ -884,8 +1025,8 @@ router.get('/assets', (req, res) => {
     });
 });
 
-router.get('/referrals/:isbranch/:type/:offset/:limit', async (req, res) => {
-  let { isbranch, type, offset, limit } = req.params;
+router.get('/referrals/:isbranch/:offset/:limit', async (req, res) => {
+  let { isbranch, offset, limit } = req.params;
   let { date0, date1, filterkey, filterval, searchkey } = req.query;
   offset = +offset;
   limit = +limit;
@@ -1032,34 +1173,34 @@ router.get('/referrals/:isbranch/:type/:offset/:limit', async (req, res) => {
               el['wallet_address'] = resp.walletaddress;
             }
           });
-        if (type === 0) {
-          //withdraw
-          await db['transactions']
-            .findAll({
-              where: { uid: id, typestr: 'WITHDRAW' },
-              raw: true,
-              attributes: [
-                [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-              ],
-            })
-            .then((resp) => {
-              let [{ sum }] = resp;
-              el['sum_withdraw'] = sum.toFixed(2);
-            });
-        } else if (type === 1) {
-          await db['transactions']
-            .findAll({
-              where: { uid: id, typestr: 'DEPOSIT' },
-              raw: true,
-              attributes: [
-                [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-              ],
-            })
-            .then((resp) => {
-              let [{ sum }] = resp;
-              el['sum_deposit'] = sum.toFixed(2);
-            });
-        }
+        // if (type === 0) {
+        //   //withdraw
+        //   await db['transactions']
+        //     .findAll({
+        //       where: { uid: id, typestr: 'WITHDRAW' },
+        //       raw: true,
+        //       attributes: [
+        //         [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+        //       ],
+        //     })
+        //     .then((resp) => {
+        //       let [{ sum }] = resp;
+        //       el['sum_withdraw'] = sum.toFixed(2);
+        //     });
+        // } else if (type === 1) {
+        //   await db['transactions']
+        //     .findAll({
+        //       where: { uid: id, typestr: 'DEPOSIT' },
+        //       raw: true,
+        //       attributes: [
+        //         [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+        //       ],
+        //     })
+        //     .then((resp) => {
+        //       let [{ sum }] = resp;
+        //       el['sum_deposit'] = sum.toFixed(2);
+        //     });
+        // }
         return el;
       });
       await Promise.all(promises);

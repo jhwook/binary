@@ -90,6 +90,7 @@ router.get('/list', softauth, async (req, res) => {
 });
 
 router.post('/add/:type', (req, res) => {
+  // type => crypto / forex / stock
   let { name, baseAsset, targetAsset, tickerSrc, imgurl } = req.body;
   let { type } = req.params;
   let symbol, dispSymbol, APISymbol, socketAPISymbol;
@@ -133,6 +134,8 @@ router.post('/add/:type', (req, res) => {
       .then((resp) => {
         respok(res, null, null, { resp });
       });
+  } else if (type === 'stock') {
+  } else {
   }
 });
 

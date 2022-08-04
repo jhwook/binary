@@ -8,6 +8,7 @@ const LOGGER = console.log;
 const { withdraw } = require('../services/withdrawal');
 const { closeTx } = require('../services/closeTx');
 const { watchTransfers } = require('../services/trackTx');
+let { Op } = db.Sequelize;
 
 var router = express.Router();
 
@@ -148,6 +149,7 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
         let referer = await db['referrals'].findOne({
           where: {
             referral_uid: id,
+            isRefererBranch: 1,
           },
           raw: true,
         });
@@ -195,40 +197,71 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
   console.log(id);
   // offset = +offset;
   // limit = +limit;
+  // db['transactions']
+  //   .findAll({
+  //     where: {
+  //       target_uid: id,
+  //       typestr: 'DEPOSIT',
+  //     },
+  //     include: [
+  //       {
+  //         //required: false,
+  //         model: db['users'],
+  //         attributes: ['id', 'email', 'phone', 'level'],
+  //         include: [
+  //           {
+  //             //     //required: false,
+  //             model: db['transactions'],
+  //             attributes: [
+  //               'uid',
+  //               [
+  //                 db.Sequelize.fn(
+  //                   'sum',
+  //                   db.Sequelize.col('transactions.localeAmount')
+  //                 ),
+  //                 'cumulAmount',
+  //               ],
+  //             ],
+  //           },
+  //         ],
+  //       },
+  //     ],
+  //     offset: +off,
+  //     limit: +lim,
+  //     order: [['id', 'DESC']],
+  //     // group: ['id'],
+  //   })
   db['transactions']
     .findAll({
       where: {
-        uid: id,
+        target_uid: id,
+        typestr: 'DEPOSIT',
       },
-      include: [
-        {
-          //required: false,
-          model: db['users'],
-          attributes: ['id', 'email', 'phone', 'level'],
-          include: [
-            {
-              //     //required: false,
-              model: db['transactions'],
-              attributes: [
-                'uid',
-                [
-                  db.Sequelize.fn(
-                    'sum',
-                    db.Sequelize.col('transactions.localeAmount')
-                  ),
-                  'cumulAmount',
-                ],
-              ],
-            },
-          ],
-        },
-      ],
-      offset: +off,
-      limit: +lim,
-      order: [['id', 'DESC']],
-      group: ['id'],
+      raw: true,
     })
-    .then((respdata) => {
+    .then(async (respdata) => {
+      let promises = respdata.map(async (el) => {
+        let { uid, id } = el;
+        el['user'] = await db['users'].findOne({
+          where: { id: uid },
+          raw: true,
+        });
+        await db['transactions']
+          .findAll({
+            where: { uid, typestr: 'DEPOSIT', id: { [Op.lte]: id } },
+            raw: true,
+            attributes: [
+              [db.Sequelize.fn('SUM', db.Sequelize.col('localeAmount')), 'sum'],
+            ],
+          })
+          .then((resp) => {
+            let [{ sum }] = resp;
+            // console.log(resp);
+            el['cumulAmount'] = sum;
+          });
+        return el;
+      });
+      await Promise.all(promises);
       respok(res, null, null, { respdata });
     });
 });

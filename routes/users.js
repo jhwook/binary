@@ -450,6 +450,7 @@ router.post('/signup/:type', async (req, res) => {
             .create({
               referer_uid: referer.id,
               referral_uid: jtoken.id,
+              isRefererBranch: 1,
             })
             .then(async (_) => {
               await db['users'].update(
@@ -850,8 +851,7 @@ router.patch('/profile', auth, async (req, res) => {
     .update(
       {
         firstname: firstName,
-        lastname,
-        lastName,
+        lastname: lastName,
       },
       {
         where: {
@@ -1155,7 +1155,13 @@ router.get(
               raw: true,
             })
             .then((resp) => {
-              v['possess'] = resp.total / 10 ** 6;
+              let possess;
+              possess = resp.total / 10 ** 6;
+              if (possess % 10 !== 0) {
+                possess = possess.toFixed(2);
+              }
+              // v['possess'] = (resp.total / 10 ** 6).toFixed(2);
+              v['possess'] = possess;
             });
           v['trade_amount'] =
             Number(v.total_deposit_amount) + Number(v.total_withdraw_amount);
