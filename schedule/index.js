@@ -10,6 +10,11 @@ module.exports = (io) => {
   const path = require('path');
   const listenersPath = path.resolve(__dirname);
   io.use((socket, next) => {
+    const err = new Error('@@@ERR@@@');
+    socket.on('connect_error', (err) => {
+      console.log('errrrrrrrrrrrrrrr', err);
+    });
+    // console.log('@@@@@@@@@@@@@@@@@@@@@@@', socket);
     fs.readdir(listenersPath, (err, files) => {
       if (err) {
         process.exit(1);
@@ -21,13 +26,14 @@ module.exports = (io) => {
       //   }
       // });
     });
+    // console.log(socket.handshake);
     if (socket.handshake.query && socket.handshake.query.token) {
       jwt.verify(
         socket.handshake.query.token,
         process.env.JWT_SECRET,
         function (err, decoded) {
           if (err) return next(new Error('Authentication error'));
-          // console.log('successful', decoded);
+          console.log('successful', decoded);
           socket.decoded = decoded;
           next();
         }
@@ -41,6 +47,8 @@ module.exports = (io) => {
     }
   }).on('connection', async (socket) => {
     // console.log(socket.decoded, ' / ', socket.id);
+    // console.log(socket);
+
     let userId;
     await jwt.verify(
       socket.handshake.query.token,
@@ -56,12 +64,14 @@ module.exports = (io) => {
         }
       }
     );
-
+    // console.log(userId, );
     if (userId) {
       bindUsernameSocketid(userId, socket.id);
     } else {
     }
-    console.log(`${socket.id},${userId} socket connected`);
+    console.log(
+      `@@@@@@@@@@@@@@@@@@@@@@@@${socket.id},${userId} socket connected`
+    );
     // const asyncBlock = async () => {
     //   await client.set("string key", "string val");
     //   const value = await client.get("string key");
@@ -80,11 +90,12 @@ module.exports = (io) => {
     //   //   }
     //   // });
     // });
+
     socket.on('disconnect', () => {
       //		unbindIpPortSocket( address , socket.id )
       deleteSocketid(socket.id);
       unbindsocket(userId);
-      console.log(`${socket.id} socket DISconnected`);
+      console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
     });
   });
 

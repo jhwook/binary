@@ -26,7 +26,7 @@ router.get('/list', softauth, async (req, res) => {
     jfilter = { name: { [Op.like]: `%${searchkey}%` } };
   }
   console.log('jfilter', jfilter);
-
+  console.log(req.decoded);
   if (req.decoded) {
     if (req.decoded.id) {
       id = req.decoded.id;

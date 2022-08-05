@@ -28,6 +28,9 @@ server.listen(PORT);
 server.on('error', onError);
 server.on('listening', onListening);
 LOGGER(`listening ${PORT} @binary`);
+io.on('connection_error', (err) => {
+  console.log('errrrrrrrrrrrrrrr', err);
+});
 listener(io);
 schedule(io);
 /**

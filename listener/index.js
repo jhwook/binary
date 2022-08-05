@@ -1,4 +1,9 @@
 const jwt = require('jsonwebtoken');
+const {
+  bindUsernameSocketid,
+  unbindsocket,
+  deleteSocketid,
+} = require('../utils/sockets');
 
 module.exports = (io) => {
   const fs = require('fs');
@@ -31,6 +36,29 @@ module.exports = (io) => {
     //   console.log(value);
     //   await client.flushall("string key");
     // };
+    let userId;
+    await jwt.verify(
+      socket.handshake.query.token,
+      process.env.JWT_SECRET,
+      function (err, decoded) {
+        if (err) return next(new Error('Authentication error'));
+        socket.decoded = decoded;
+        if (socket.decoded.id) {
+          userId = decoded.id;
+        }
+        if (socket.decoded.demo_uuid) {
+          userId = decoded.demo_uuid;
+        }
+      }
+    );
+    // console.log(userId, );
+    if (userId) {
+      bindUsernameSocketid(userId, socket.id);
+    } else {
+    }
+    console.log(
+      `@@@@@@@@@@@@@@@@@@@@@@@@${socket.id},${userId} socket connected`
+    );
 
     fs.readdir(listenersPath, (err, files) => {
       if (err) {
@@ -41,6 +69,12 @@ module.exports = (io) => {
           require(path.resolve(__dirname, fileName))(io, socket);
         }
       });
+    });
+    socket.on('disconnect', () => {
+      //		unbindIpPortSocket( address , socket.id )
+      deleteSocketid(socket.id);
+      unbindsocket(userId);
+      console.log(`${socket.id} socket DISconnected`);
     });
   });
 
