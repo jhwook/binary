@@ -28,28 +28,31 @@ server.listen(PORT);
 server.on('error', onError);
 server.on('listening', onListening);
 LOGGER(`listening ${PORT} @binary`);
+io.on('connection_error', (err) => {
+  console.log('errrrrrrrrrrrrrrr', err);
+});
 listener(io);
 schedule(io);
 /**
  * Normalize a port into a number, string, or false.
  */
-// const https = require('https');
-// const fs = require('fs');
-// const server_https = https
-//   .createServer(
-//     {
-//       key: fs
-//         .readFileSync('/etc/nginx/ssl/options1.net/options1.net.key')
-//         .toString(),
-//       cert: fs
-//         .readFileSync('/etc/nginx/ssl/options1.net/options1.net.crt')
-//         .toString(),
-//     },
-//     app
-//   )
-//   .listen(TESTPORT + 10);
+ const https = require('https');
+ const fs = require('fs');
+ const server_https = https
+   .createServer(
+     {
+       key: fs
+         .readFileSync('/etc/nginx/ssl/options1.net/options1.net.key')
+         .toString(),
+       cert: fs
+         .readFileSync('/etc/nginx/ssl/options1.net/options1.net.crt')
+         .toString(),
+     },
+     app
+   )
+   .listen(TESTPORT + 10);
 
-const https = require('https');
+/* const https = require('https');
 const fs = require('fs');
 const server_https = https
   .createServer(
@@ -60,7 +63,7 @@ const server_https = https
     app
   )
   .listen(TESTPORT + 10);
-
+*/
 function normalizePort(val) {
   var port = parseInt(val, 10);
 

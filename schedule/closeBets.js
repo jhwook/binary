@@ -36,7 +36,7 @@ const { calculate_dividendrate } = require('./calculateDividendRate');
 module.exports = (io, socket) => {
   const socketMessage = async (id, data) => {
     let usersocketid = await cliredisa.hget('USERNAME2SOCKID', String(id));
-    // console.log(id, typeof id, usersocketid);
+    console.log(id, typeof id, usersocketid);
     if (usersocketid) {
       socket.to(usersocketid).emit('bet_closed', data);
     }
@@ -100,12 +100,13 @@ module.exports = (io, socket) => {
                   raw: true,
                 })
                 .then(async (bets) => {
-                  if (!bets) return;
+                  if (bets.length === 0) return;
                   let currentPrice = await cliredisa.hget(
                     'STREAM_ASSET_PRICE_PER_MIN',
                     APISymbol
                   );
                   let status;
+                  let live_demo = [0, 0];
                   let sumBetAmount_lose_win = [0, 0];
                   let dividendrate_high;
                   let dividendrate_low;
@@ -155,6 +156,7 @@ module.exports = (io, socket) => {
                       }
 
                       if (v.type === 'LIVE') {
+                        live_demo[0] = live_demo[0] + 1;
                         await db['betlogs']
                           .create({
                             uid: v.uid,
@@ -203,9 +205,10 @@ module.exports = (io, socket) => {
                             socketMessage(v.uid, socketData);
                             // }
 
-                            db['bets'].destroy({ where: { id: v.id } });
+                            await db['bets'].destroy({ where: { id: v.id } });
                           });
                       } else if (v.type === 'DEMO') {
+                        live_demo[1] = live_demo[1] + 1;
                         console.log(
                           '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@',
                           v.uuid
@@ -250,7 +253,7 @@ module.exports = (io, socket) => {
 
                               socketMessage(v.uid, socketData);
 
-                              db['bets'].destroy({ where: { id: v.id } });
+                              await db['bets'].destroy({ where: { id: v.id } });
                             });
                         }
                         if (v.uuid) {
@@ -301,7 +304,7 @@ module.exports = (io, socket) => {
 
                               socketMessage(v.uuid, socketData);
 
-                              db['bets'].destroy({ where: { id: v.id } });
+                              await db['bets'].destroy({ where: { id: v.id } });
                             });
                         }
                       }
@@ -318,6 +321,7 @@ module.exports = (io, socket) => {
                     currentPrice,
                     startPrice,
                     totalAmount,
+                    live_demo,
                   });
                 });
             }).then((value) => {
@@ -331,6 +335,7 @@ module.exports = (io, socket) => {
                 currentPrice,
                 startPrice,
                 totalAmount,
+                live_demo,
               } = value;
               movelogrounds(
                 i,
@@ -350,7 +355,8 @@ module.exports = (io, socket) => {
                 FEE_TO_BRANCH,
                 FEE_TO_ADMIN,
                 type,
-                status
+                status,
+                live_demo
               );
               // settlebets(
               //   i,
@@ -437,39 +443,51 @@ module.exports = (io, socket) => {
     FEE_TO_BRANCH,
     FEE_TO_ADMIN,
     type,
-    status
+    status,
+    live_demo
   ) => {
     let winnerTotalAmount = sumBetAmount_lose_win[1];
     let loserTotalAmount = sumBetAmount_lose_win[0];
-
-    if (status === 2) {
-      await db['betlogs']
-        .findAll({
-          where: {
-            assetId,
-            expiry,
-            type,
-            status: 2,
-          },
-          raw: true,
-        })
-        .then(async (drawusers) => {
-          if (drawusers.length < 1) {
-            return;
-          }
-          drawusers.map(async (v) => {
-            // console.log(v);
-            await db['balances'].increment('locked', {
-              by: -1 * v.amount,
-              where: { uid: v.uid, typestr: v.type },
-            });
-            await db['balances'].increment('avail', {
-              by: v.amount,
-              where: { uid: v.uid, typestr: v.type },
-            });
+    console.log({
+      assetId,
+      expiry,
+      sumBetAmount_lose_win,
+      FEE_TO_BRANCH,
+      FEE_TO_ADMIN,
+      type,
+      status,
+      live_demo,
+    });
+    /////////////////////////////////////////////////////////// DRAW (LIVE && DEMO)
+    await db['betlogs']
+      .findAll({
+        where: {
+          assetId,
+          expiry,
+          type,
+          status: 2,
+        },
+        raw: true,
+      })
+      .then(async (drawusers) => {
+        if (drawusers.length < 1) {
+          return;
+        }
+        drawusers.map(async (v) => {
+          // console.log(v);
+          await db['balances'].increment('locked', {
+            by: -1 * v.amount,
+            where: { uid: v.uid, typestr: v.type },
+          });
+          await db['balances'].increment('avail', {
+            by: v.amount,
+            where: { uid: v.uid, typestr: v.type },
           });
         });
-    } else if (status !== 2 && type === 'LIVE') {
+      });
+    /////////////////////////////////////////////////////////// LIVE
+    if (live_demo[0]) {
+      console.log('LIVE');
       if (winnerTotalAmount === 0 || loserTotalAmount === 0) {
       } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
         // const t = await db.sequelize.transaction();
@@ -532,12 +550,6 @@ module.exports = (io, socket) => {
                 earned_after_fee = earned_after_fee - fee_to_branch;
               }
 
-              if (uid === 119) {
-                console.log('earned', earned);
-                console.log('fee_to_admin', fee_to_admin);
-                console.log('fee_to_branch', fee_to_branch);
-                console.log('earned_after_fee', earned_after_fee);
-              }
               await db['referrals']
                 .findOne(
                   {
@@ -735,7 +747,9 @@ module.exports = (io, socket) => {
         // await t.rollback();
         // }
       }
-    } else if (status !== 2 && type === 'DEMO') {
+      /////////////////////////////////////////////////////////// DEMO
+    } else if (live_demo[1]) {
+      console.log('DEMO');
       if (winnerTotalAmount === 0 || loserTotalAmount === 0) {
       } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
         // const t = await db.sequelize.transaction();

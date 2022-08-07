@@ -34,10 +34,10 @@ exports.auth = (req, res, next) => {
 exports.softauth = (req, res, next) => {
   try {
     let result = jwt.verify(
-      req.headers.authorization,
+      `${req.headers.authorization}`,
       process.env.JWT_SECRET,
       (err, decoded) => {
-        console.log('decoded', decoded);
+        // console.log('softauth@@@@@@@@@@@@ decoded', decoded);
 
         req.decoded = decoded;
         return next();

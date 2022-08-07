@@ -869,6 +869,39 @@ router.get('/levels', async (req, res) => {
   });
 });
 
+router.get('/level/fee', async (req, res) => {
+  let dispLevelStr = ['Bronze', 'Silver', 'Gold', 'Diamond'];
+  db['feesettings']
+    .findAll({
+      where: { key_: { [Op.like]: '%REFERER%' } },
+      raw: true,
+      order: [['id', 'ASC']],
+    })
+    .then(async (resp) => {
+      let result = [];
+      let promises = resp.map(async (el, i) => {
+        let { key_ } = el;
+        key_ = key_.split('_')[3];
+
+        await db['levelsettings']
+          .findOne({ where: { levelstr: key_ } })
+          .then((resp) => {
+            // result.push({
+            //   fee: el.value_ / 100,
+            //   levelstr_disp: dispLevelStr[i],
+            //   imgurl: resp.imgurl,
+            // });
+            el['fee'] = el.value_ / 100;
+            el['levelstr_disp'] = dispLevelStr[i];
+            el['imgurl'] = resp.imgurl;
+          });
+        return el;
+      });
+      await Promise.all(promises);
+      respok(res, null, null, { resp });
+    });
+});
+
 router.get('/user/levels', async (req, res) => {
   let start_month = moment().subtract('months').startOf('month');
   let end_month = moment().subtract('months').endOf('month');
