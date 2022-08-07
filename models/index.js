@@ -27,10 +27,10 @@ if (config.use_env_variable) {
       define: { timestamps: false },
       logging: false,
       pool: {
-        max: 500,
+        max: 5000, // 500
         min: 0,
-        acquire: 60000,
-        idle: 10000,
+        acquire: 60000, // 10000 , // 60000,
+        idle: 3000, // 10000,
       },
     }
     //  , define: {timestamps: false}

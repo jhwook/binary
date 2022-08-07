@@ -5,6 +5,6 @@
     "port": 37239,
     "password": "Ut5iQQ4Bad4LVARPAq1x",
     "database": "binopt",
-    "dialect": "mariadb"
+    "dialect": "mysql"
   }
 }
