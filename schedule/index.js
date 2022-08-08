@@ -19,7 +19,8 @@ module.exports = (io) => {
       if (err) {
         process.exit(1);
       }
-      require(path.resolve(__dirname, 'closeBets.js'))(io, socket);
+      // require(path.resolve(__dirname, 'closeBets.js'))(io, socket);
+      require(path.resolve(__dirname, 'socketMessage.js'))(io, socket);
       // files.map((fileName) => {
       //   if (fileName === 'closeBets.js') {
       //     require(path.resolve(__dirname, fileName))(io, socket);
@@ -47,7 +48,7 @@ module.exports = (io) => {
     }
   }).on('connection', async (socket) => {
     // console.log(socket.decoded, ' / ', socket.id);
-    // console.log(socket);
+    console.log(socket.sids);
 
     let userId;
     await jwt.verify(
@@ -95,6 +96,7 @@ module.exports = (io) => {
       //		unbindIpPortSocket( address , socket.id )
       deleteSocketid(socket.id);
       unbindsocket(userId);
+      socket.close();
       console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
     });
   });

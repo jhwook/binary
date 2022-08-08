@@ -10,6 +10,11 @@ const { calculate_dividendrate } = require('../schedule/calculateDividendRate');
 
 module.exports = (io, socket) => {
   socket.on('dividendrate', async (data) => {
+    // console.log(
+    //   '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@',
+    //   socket.id,
+    //   'ON'
+    // );
     let timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
 
     if (Array.isArray(data)) {
@@ -20,6 +25,11 @@ module.exports = (io, socket) => {
       );
 
       socket.emit('dividendrate', dividendrate);
+      // console.log(
+      //   '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@',
+      //   socket.id,
+      //   'SEND'
+      // );
     }
   });
 };

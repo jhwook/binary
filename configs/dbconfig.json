@@ -1,6 +1,6 @@
 {
   "development": {
-    "host": "3.35.120.65",
+    "host": "localhost",
     "username": "binary",
     "port": 37239,
     "password": "Ut5iQQ4Bad4LVARPAq1x",

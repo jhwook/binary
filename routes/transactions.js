@@ -177,6 +177,33 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
       }
 
       break;
+    // case 'OTHER_EXCHANGES':
+    //   if (!txhash) {
+    //     resperr(res, 'TXHASH-ISSUE');
+    //     return;
+    //   }
+    //   await db['transactions'].create({
+    //     uid: id,
+    //     amount: amount,
+    //     unit: tokentype,
+    //     status: 0,
+    //     typestr: 'DEPOSIT_FROM_OTHER_EXCHANGES',
+    //     type: 1,
+    //     txhash: txhash,
+    //     senderaddr,
+    //     rxaddr,
+    //   });
+    //   respok(res, 'SUBMITED');
+
+    //   closeTx({
+    //     txhash,
+    //     type: 'DEPOSIT',
+    //     tokentype: tokentype,
+    //     userid: id,
+    //     senderaddr,
+    //     amount,
+    //   });
+    //   break;
     case 'VERIFY':
       if (!isadmin && !isbranch) {
         resperr(res, 'NOT-AN-ADMIN');
@@ -189,6 +216,33 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
     default:
       break;
   }
+});
+
+router.get('/user/wallet/address/:uid', auth, async (req, res) => {
+  let { uid } = req.params;
+  await db['userwalletaddress']
+    .findOne({
+      where: { id: uid },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
+router.post('/deposit/:type/:amount', auth, async (req, res) => {
+  let { type, amount } = req.params;
+  let {
+    rxaddr,
+    txhash,
+    tokentype,
+    senderaddr,
+    name,
+    card,
+    bankCode,
+    bankName,
+  } = req.body;
+  let { id, isadmin, isbranch } = req.decoded;
 });
 
 router.get('/branch/list/:off/:lim', auth, async (req, res) => {

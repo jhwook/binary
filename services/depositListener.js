@@ -4,7 +4,7 @@ const { contractaddr } = require('../configs/addresses');
 const { abi: abierc20 } = require('../contracts/abi/ERC20');
 const db = require('../models');
 
-async function getConfirmations(socket, txHash) {
+async function getConfirmations(txHash) {
   try {
     // Instantiate web3 with HttpProvider
     const web3 = new Web3(web3API);
@@ -19,24 +19,19 @@ async function getConfirmations(socket, txHash) {
     // In this case we return 0 as number of confirmations
     return trx.blockNumber === null ? 0 : currentBlock - trx.blockNumber;
   } catch (error) {
-    socket.emit('transactions', false);
     console.log(error);
   }
 }
 
-async function confirmEtherTransaction(
-  socket,
-  txHash,
-  uid,
-  amount,
-  confirmations = 10
-) {
+async function confirmEtherTransaction(jdata, confirmations = 10) {
+  let { uid, rxaddr, senderaddr, amount, txhash } = jdata;
+  console.log('@@@@@@@@@@jdata', jdata);
   setTimeout(async () => {
     // Get current number of confirmations and compare it with sought-for value
-    const trxConfirmations = await getConfirmations(socket, txHash);
+    const trxConfirmations = await getConfirmations(txhash);
     console.log(
       'Transaction with hash ' +
-        txHash +
+        txhash +
         ' has ' +
         trxConfirmations +
         ' confirmation(s)'
@@ -50,7 +45,7 @@ async function confirmEtherTransaction(
         },
         {
           where: {
-            txhash: txHash,
+            txhash: txhash,
           },
         }
       );
@@ -58,21 +53,19 @@ async function confirmEtherTransaction(
         by: amount,
         where: { uid, typestr: 'LIVE' },
       });
-
       console.log(
-        'Transaction with hash ' + txHash + ' has been successfully confirmed'
+        'Transaction with hash ' + txhash + ' has been successfully confirmed'
       );
-      socket.emit('transactions', { txHash });
 
-      return 'Finished';
+      return;
     }
     // Recursive call
-    return confirmEtherTransaction(socket, txHash, uid, amount, confirmations);
+    return confirmEtherTransaction(jdata, confirmations);
   }, 30 * 1000);
 }
 
-function watchTransfers(to, target, uid, txId, socket) {
-  console.log('watchstarted');
+const watchTokenTransfers = async () => {
+  let jdata;
   console.log('watchstarted');
   // const web3ws = new Web3(new Web3.providers.WebsocketProvider('wss://polygon-mumbai.g.alchemy.com/v2/zhUm6jYUggnzx1n9k8XdJHcB0KhH5T7d'));
   const web3ws = new Web3(
@@ -89,11 +82,10 @@ function watchTransfers(to, target, uid, txId, socket) {
     }
   );
 
-  // to : 0xEED598eaEa3a78215Ae3FD0188C30243f48C23a5
+  let userWalletList = [];
+
   const options = {
-    filter: {
-      _to: to,
-    },
+    filter: {},
     fromBlock: 'latest',
   };
 
@@ -106,56 +98,33 @@ function watchTransfers(to, target, uid, txId, socket) {
     let { _value, _from, _to } = ev.returnValues;
 
     console.log(`Detected Deposit from ${_from} to ${_to} amount of ${_value}`);
-    if (!txId) {
-      await db['transactions']
-        .findOne({
-          where: {
-            txhash: txhash,
-          },
-        })
-        .then(async (findDupe) => {
-          console.log(findDupe);
-          if (!findDupe) {
-            await db['transactions']
-              .create({
-                uid: uid,
-                amount: _value,
-                unit: target,
-                type: 1,
-                typestr: 'DEPOSIT',
-                txhash: txhash,
-                status: 0,
-              })
-              .catch((err) => {
-                console.log(err);
-              });
-            confirmEtherTransaction(socket, ev.transactionHash, uid, _value);
 
-            return;
-          } else {
-            return;
-          }
-        });
-      return;
-    } else {
-      await db['transactions'].update(
-        {
+    db['userwallets']
+      .findOne({
+        where: { walletaddress: _to },
+        raw: true,
+      })
+      .then((resp) => {
+        let { uid } = resp;
+        jdata = { uid, rxaddr: _to, senderaddr: _from, amount: _value, txhash };
+        db['transactions'].create({
+          uid: uid,
+          amount: _value,
+          // unit,
+          type: 3,
+          typestr: 'DEPOSIT_FROM_OTHER_EXCHANGES',
+          status: 0,
           txhash: txhash,
-          verifier: uid,
-        },
-        {
-          where: {
-            id: txId,
-          },
-        }
-      );
-      confirmEtherTransaction(socket, ev.transactionHash, uid, _value);
-      return;
-    }
-    return;
+          rxaddr: _to,
+          senderaddr: _from,
+        });
+        confirmEtherTransaction(jdata);
+      });
   });
-}
+};
+
+watchTokenTransfers();
 
 module.exports = {
-  watchTransfers,
+  watchTokenTransfers,
 };
