@@ -1,4 +1,5 @@
 var express = require('express');
+var router = express.Router();
 let { respok, resperr } = require('../utils/rest');
 const jwt = require('jsonwebtoken');
 const { softauth, auth, adminauth } = require('../utils/authMiddleware');
@@ -8,8 +9,10 @@ const LOGGER = console.log;
 let { Op } = db.Sequelize;
 const axios = require('axios');
 const cliredisa = require('async-redis').createClient();
+const fs = require('fs');
+const { upload_symbol } = require('../utils/multer');
 
-var router = express.Router();
+const WEB_URL = 'https://options1.net/resource';
 
 // router.get('/', function (req, res, next) {
 //   res.send('respond with a resource');
@@ -89,9 +92,29 @@ router.get('/list', softauth, async (req, res) => {
   }
 });
 
-router.post('/add/:type', (req, res) => {
+router.get('/symbols/:type/:offset/:limit', async (req, res) => {
+  let { type, offset, limit } = req.params;
+  offset = +offset;
+  limit = +limit;
+  db['twelvedataapisymbols']
+    .findAll({
+      offset,
+      limit,
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
+router.post('/v2/add/:type', (req, res) => {});
+
+router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
   // type => crypto / forex / stock
-  let { name, baseAsset, targetAsset, tickerSrc, imgurl } = req.body;
+  const imgfile = req.file;
+  console.log(req.file);
+  let imgurl = `${WEB_URL}/symbols/${imgfile.filename}`;
+  let { name, baseAsset, targetAsset, tickerSrc, stockSymbol } = req.body;
   let { type } = req.params;
   let symbol, dispSymbol, APISymbol, socketAPISymbol;
   symbol = `${baseAsset}_${targetAsset}`;
@@ -135,6 +158,23 @@ router.post('/add/:type', (req, res) => {
         respok(res, null, null, { resp });
       });
   } else if (type === 'stock') {
+    db['assets']
+      .create({
+        group: 3,
+        groupstr: 'stock',
+        name,
+        // baseAsset,
+        // targetAsset,
+        // tickerSrc,
+        imgurl,
+        symbol: stockSymbol,
+        dispSymbol: stockSymbol,
+        APISymbol: stockSymbol,
+        socketAPISymbol: stockSymbol,
+      })
+      .then((resp) => {
+        respok(res, null, null, { resp });
+      });
   } else {
   }
 });
@@ -180,4 +220,33 @@ router.get('/search', async (req, res) => {
     });
 });
 
+router.get('/api', async (req, res) => {
+  await axios
+    .get('https://api.twelvedata.com/stocks?exchange=HKEX&?source=docs')
+    .then((resp) => {
+      resp.data.data.forEach((el) => {
+        let { currency, name, symbol } = el;
+        db['twelvedataapisymbols'].create({
+          symbol: symbol,
+          description: name,
+          assetkind: 'stock',
+        });
+      });
+    });
+});
+
 module.exports = router;
+
+// CREATE TABLE `twelvedataapisymbols` (
+//   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+//   `createdat` datetime DEFAULT current_timestamp(),
+//   `updatedat` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+//   `symbol` varchar(60) DEFAULT NULL,
+//   `displaySymbol` varchar(60) DEFAULT NULL,
+//   `description` text DEFAULT NULL,
+//   `vendorname` varchar(60) DEFAULT NULL,
+//   `assetkind` varchar(60) DEFAULT NULL,
+//   `exchanges` varchar(60) DEFAULT NULL,
+//   `active` tinyint(4) DEFAULT 1,
+//   PRIMARY KEY (`id`)
+// )

@@ -44,7 +44,7 @@ const { calculate_dividendrate } = require('./calculateDividendRate');
 //     }
 //   };
 
-cron.schedule('10 * * * * *', async () => {
+cron.schedule('0 * * * * *', async () => {
   console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
   closeBet();
 });

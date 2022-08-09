@@ -43,30 +43,30 @@ router.post(
       });
   }
 );
-// router.post('/level', upload.single('img'), async (req, res) => {
-//   // let {id} = req.decoded
-//   const imgfile = req.file;
-//   console.log(req.file);
+router.post('/level', upload.single('img'), async (req, res) => {
+  // let {id} = req.decoded
+  const imgfile = req.file;
+  console.log('@@@@@@@@@@@@@@@@@@@@', req.file);
 
-//   // db['banners']
-//   //   .create({
-//   //     pc_imageurl: `${WEB_URL}/banners/${pc[0].filename}`,
-//   //     mobile_imageurl: `${WEB_URL}/banners/${mobile[0].filename}`,
-//   //     startDate: date0,
-//   //     endDate: date1,
-//   //     exposure,
-//   //     exposure_posiiton,
-//   //     status,
-//   //     // description,
-//   //     // type,
-//   //     title,
-//   //     external_link,
-//   //     // active,
-//   //   })
-//   //   .then((_) => {
-//   //     respok(res, 'OK');
-//   //   });
-// });
+  // db['banners']
+  //   .create({
+  //     pc_imageurl: `${WEB_URL}/banners/${pc[0].filename}`,
+  //     mobile_imageurl: `${WEB_URL}/banners/${mobile[0].filename}`,
+  //     startDate: date0,
+  //     endDate: date1,
+  //     exposure,
+  //     exposure_posiiton,
+  //     status,
+  //     // description,
+  //     // type,
+  //     title,
+  //     external_link,
+  //     // active,
+  //   })
+  //   .then((_) => {
+  //     respok(res, 'OK');
+  //   });
+});
 
 router.get('/', async (req, res) => {
   await db['banners']

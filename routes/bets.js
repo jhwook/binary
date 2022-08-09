@@ -562,6 +562,37 @@ router.get('/my/:type', auth, async (req, res) => {
   // }
 });
 
+router.get('/end', async (req, res) => {
+  // let { id } = req.decoded;
+  let id = 114;
+  let now_unix = moment().set('second', 0).unix();
+  await db['betlogs']
+    .findAll({
+      where: { uid: id, expiry: now_unix },
+      raw: true,
+    })
+    .then((resp) => {
+      resp.map((bet) => {
+        let { amount, status, diffRate } = bet;
+        let profit = 0;
+        amount = amount / 10 ** 6;
+        if (status === 1) {
+          if (diffRate === 0) {
+            profit = amount;
+          } else {
+            profit = ((amount * diffRate) / 100).toFixed(2);
+          }
+        } else if (status === 0) {
+          profit = -1 * amount;
+        } else if (status === 2) {
+          profit = amount;
+        }
+        bet['profit'] = profit;
+      });
+      respok(res, null, null, { resp });
+    });
+});
+
 router.get('/count/:type', async (req, res) => {
   let now = moment().startOf('minute').unix();
   let { type } = req.params;

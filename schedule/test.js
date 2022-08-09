@@ -19,14 +19,18 @@
 //   console.log('끝');
 // };
 const db = require('../models');
+const axios = require('axios');
+const cron = require('node-cron');
 // test([1, 2, 3, 4, 5, 6, 7]);
 const {
   calculate_dividendrate,
 } = require('../service-rmq/cal_dividendrate-rmq');
 
 const test2 = async () => {
-  let result = await calculate_dividendrate([1], 'LIVE');
-  console.log(result);
+  await axios.get('http://users.options1.net:30708/bets/end').then((resp) => {
+    console.log(resp.data);
+  });
 };
-
-test2();
+cron.schedule('0 * * * * *', () => {
+  test2();
+});

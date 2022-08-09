@@ -164,12 +164,13 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
             typestr: 'DEPOSIT',
             status: 0,
             target_uid: referer.referer_uid,
-            localeAmount: amount,
+            localeAmount: amount * 10 ** 6,
             localeUnit: tokentype,
             name: name,
             cardNum: card,
             bankCode: bankCode,
             bankName: bankName,
+            unit: 'USD',
           })
           .then((_) => {
             respok(res, 'SUBMITED');
@@ -288,9 +289,10 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
   db['transactions']
     .findAll({
       where: {
-        target_uid: id,
+        type: 2,
         typestr: 'DEPOSIT',
       },
+      order: [['id', 'DESC']],
       raw: true,
     })
     .then(async (respdata) => {
@@ -304,8 +306,9 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
           .findAll({
             where: { uid, typestr: 'DEPOSIT', id: { [Op.lte]: id } },
             raw: true,
+            order: [['id', 'ASC']],
             attributes: [
-              [db.Sequelize.fn('SUM', db.Sequelize.col('localeAmount')), 'sum'],
+              [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
             ],
           })
           .then((resp) => {
@@ -331,6 +334,8 @@ router.patch('/branch/transfer', auth, async (req, res) => {
   /*
     txId: transaction의 id값. txhash를 받으면 저장한다. 검증 완료되면 status 를 1로 변경한다.
     */
+  console.log('==================', amount, '====================');
+  amount = amount / 10 ** 12;
   if (!txId || !amount || !tokentype) {
     resperr(res, 'INVALID-DATA');
     return;
@@ -344,6 +349,7 @@ router.patch('/branch/transfer', auth, async (req, res) => {
       let tx = await db['transactions'].findOne({ where: { txhash } });
       tx.update({
         status: 1,
+        amount: amount,
       });
       await db['balances'].increment(['avail', 'total'], {
         by: amount,

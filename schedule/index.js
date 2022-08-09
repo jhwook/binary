@@ -96,7 +96,7 @@ module.exports = (io) => {
       //		unbindIpPortSocket( address , socket.id )
       deleteSocketid(socket.id);
       unbindsocket(userId);
-      socket.close();
+
       console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
     });
   });

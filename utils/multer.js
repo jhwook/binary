@@ -38,4 +38,25 @@ const upload = multer({
   limits: { fileSize: 30 * 1024 * 1024 },
 });
 
-module.exports = { upload };
+const upload_symbol = multer({
+  storage: multer.diskStorage({
+    //폴더위치 지정
+    destination: (req, file, done) => {
+      done(null, '/var/www/html/resource/symbols');
+    },
+    filename: (req, file, done) => {
+      const ext = path.extname(file.originalname);
+      // aaa.txt => aaa+&&+129371271654.txt
+      const md5 = crypto
+        .createHash('md5')
+        .update(file.originalname)
+        .digest('hex');
+      const fileName = md5 + Date.now() + ext;
+      done(null, fileName);
+    },
+  }),
+  fileFilter: fileFilter,
+  limits: { fileSize: 30 * 1024 * 1024 },
+});
+
+module.exports = { upload, upload_symbol };

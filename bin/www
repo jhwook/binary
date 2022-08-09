@@ -153,7 +153,7 @@ LOGGER(`listening ${PORT} @binary`);
 // });
 
 listener(https_io);
-schedule(https_io);
+// schedule(https_io);
 
 /**
  * Normalize a port into a number, string, or false.

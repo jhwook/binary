@@ -62,6 +62,7 @@ async function createJWT(jfilter) {
       'isbranch',
       'profileimage',
       'countryNum',
+      'language',
     ],
     raw: true,
   });
