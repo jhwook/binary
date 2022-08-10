@@ -1,0 +1,58 @@
+* e085839 = Ubuntu , 14 hours ago : branch_deposit
+* c41deb4 = Ubuntu , 2 days ago : socket
+*   8757d2c = jhwook , 3 days ago : Merge pull request #64 from chainlabs21/jhwook3
+[32m|[m[33m\[m  
+[32m|[m * 55acd03 = Ubuntu , 3 days ago : m
+[32m|[m * 550949e = Ubuntu , 5 days ago : socket
+* [33m|[m a7de398 = jhwook , 6 days ago : Merge pull request #63 from chainlabs21/jhwook3
+[34m|[m[33m\[m[33m|[m 
+[34m|[m * 7f5a4a1 = Ubuntu , 6 days ago : image
+* [35m|[m 3c3efdb = jhwook , 7 days ago : Merge pull request #62 from chainlabs21/jhwook3
+[36m|[m[35m\[m[35m|[m 
+[36m|[m * 9791799 = Ubuntu , 7 days ago : goerli_testnet
+* [1;31m|[m 4768e17 = jhwook , 8 days ago : Merge pull request #61 from chainlabs21/jhwook3
+[1;32m|[m[1;31m\[m[1;31m|[m 
+[1;32m|[m * 31291b9 = Ubuntu , 8 days ago : branch_api
+[1;32m|[m * 91a448a = Ubuntu , 8 days ago : branch_api
+[1;32m|[m * ef13bfb = Ubuntu , 9 days ago : 20220801
+* [1;33m|[m ac8ab83 = jhwook , 11 days ago : Merge pull request #60 from chainlabs21/jhwook3
+[1;34m|[m[1;33m\[m[1;33m|[m 
+[1;34m|[m * 75fc861 = Ubuntu , 11 days ago : last_30sec_price
+[1;34m|[m * 77cc436 = Ubuntu , 13 days ago : query tradeable assets endpoint-20220728
+* [1;35m|[m 8530ed0 = jhwook , 2 weeks ago : Merge pull request #59 from chainlabs21/jhwook3
+[1;36m|[m[1;35m\[m[1;35m|[m 
+[1;36m|[m * 7366042 = Ubuntu , 2 weeks ago : admin
+* [31m|[m 5ad736a = jhwook , 2 weeks ago : Merge pull request #58 from chainlabs21/jhwook3
+[32m|[m[31m\[m[31m|[m 
+[32m|[m * dca1676 = Ubuntu , 2 weeks ago : update_bets
+[32m|[m * d27c3aa = Ubuntu , 2 weeks ago : 안녕...
+* [33m|[m 75d7cf8 = jhwook , 3 weeks ago : Merge pull request #57 from chainlabs21/jhwook3
+[34m|[m[33m\[m[33m|[m 
+[34m|[m * d380085 = Ubuntu , 3 weeks ago : admin_queries
+[34m|[m * 537202d = Ubuntu , 3 weeks ago : get_stream_ticker_price
+[34m|[m * fdfc765 = Ubuntu , 3 weeks ago : bet_demo/live
+[34m|[m * 21e0ea8 = Ubuntu , 3 weeks ago : get_ticker_price
+[34m|[m * c60b41e = Ubuntu , 4 weeks ago : bet_fee
+[34m|[m[34m/[m  
+* 38c9ad9 = litriggy , 5 weeks ago : SQL dump
+* 4f9851a = litriggy , 5 weeks ago : branch -> user
+* 36dcf57 = litriggy , 5 weeks ago : bet
+* c10bf22 = litriggy , 5 weeks ago : close bets
+* 3a13c03 = litriggy , 5 weeks ago : Betting
+* 3f05ba0 = litriggy , 5 weeks ago : Transaction socket
+* 8b026f2 = litriggy , 6 weeks ago : transaction, fix
+* 48ae40f = litriggy , 6 weeks ago : bets, scheduler
+*   5a2b46f = litriggy , 6 weeks ago : twilio
+[36m|[m[1;31m\[m  
+[36m|[m * a45f9e4 = Triggy , 6 weeks ago : Update twilio.js
+* [1;31m|[m be6ce9d = litriggy , 6 weeks ago : twilio
+[1;31m|[m[1;31m/[m  
+* f949bc5 = litriggy , 6 weeks ago : Tracking transactions, create wallet on registration
+* e9962b6 = litriggy , 6 weeks ago : Lots of changes
+* c276e30 = litriggy , 7 weeks ago : deposits
+* 2689acd = litriggy , 7 weeks ago : Login history, Withdrawal options
+* 659adfa = litriggy , 7 weeks ago : login, assets, bookmarks
+* 5b76854 = litriggy , 8 weeks ago : softauth
+* 617f122 = litriggy , 8 weeks ago : Fixed
+* 325d42c = litriggy , 8 weeks ago : JWT login
+* 227954e = Triggy , 8 weeks ago : Initial commit

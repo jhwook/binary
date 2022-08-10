@@ -297,7 +297,7 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
     })
     .then(async (respdata) => {
       let promises = respdata.map(async (el) => {
-        let { uid, id } = el;
+        let { uid, id, amount } = el;
         el['user'] = await db['users'].findOne({
           where: { id: uid },
           raw: true,
@@ -313,8 +313,8 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
           })
           .then((resp) => {
             let [{ sum }] = resp;
-            // console.log(resp);
-            el['cumulAmount'] = sum;
+            console.log(resp);
+            el['cumulAmount'] = sum / 10 ** 6;
           });
         return el;
       });
@@ -335,7 +335,7 @@ router.patch('/branch/transfer', auth, async (req, res) => {
     txId: transaction의 id값. txhash를 받으면 저장한다. 검증 완료되면 status 를 1로 변경한다.
     */
   console.log('==================', amount, '====================');
-  amount = amount / 10 ** 12;
+  amount = amount / 10 ** 6;
   if (!txId || !amount || !tokentype) {
     resperr(res, 'INVALID-DATA');
     return;
