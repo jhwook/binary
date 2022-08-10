@@ -4,7 +4,7 @@ require('dotenv').config();
 const GOOGLE_EMAIL = process.env.GOOGLE_EMAIL;
 const GOOGLE_PASS = process.env.GOOGLE_PASS;
 
-const sendEmailMessage = async (email) => {
+const sendEmailMessage = async (email, CODE) => {
   const transporter = nodemailer.createTransport({
     service: 'gmail', // 이메일
     auth: {
@@ -13,11 +13,16 @@ const sendEmailMessage = async (email) => {
     },
   });
   const mailOptions = {
-    from: GOOGLE_EMAIL,
+    from: 'no-reply@stepn.com',
     to: email,
-    subject: 'BINARY_CONFIRM_MAIL',
-    html: `<h1>BINARY_CONFIRM_MAIL</h1>`,
-    text: 'HELLO',
+    subject: '[BETBIT] CONFIRM_MAIL',
+    html: `<h1>[BETBIT] CONFIRM_MAIL</h1>
+    <h3>Your STEPN verification code is: ${CODE}.</h3>
+    <h3>Please complete the account verification process in 10 minutes.</h3>
+    `,
+    // text: ``,
   };
   await transporter.sendMail(mailOptions);
 };
+
+module.exports = { sendEmailMessage };

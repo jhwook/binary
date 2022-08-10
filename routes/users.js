@@ -16,6 +16,7 @@ var router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const { sendMessage } = require('../services/twilio');
+const { sendEmailMessage } = require('../services/nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const e = require('express');
 
@@ -63,6 +64,8 @@ async function createJWT(jfilter) {
       'profileimage',
       'countryNum',
       'language',
+      'mailVerified',
+      'phoneVerified',
     ],
     raw: true,
   });
@@ -94,6 +97,7 @@ async function createJWT(jfilter) {
   if (!userinfo) {
     return false;
   }
+
   let token = jwt.sign(
     {
       type: 'JWT',
@@ -107,6 +111,7 @@ async function createJWT(jfilter) {
       issuer: 'EXPRESS',
     }
   );
+
   return {
     tokenId: token,
     ...userinfo,
@@ -684,27 +689,197 @@ router.post('/send/verification/:type', auth, async (req, res) => {
   let { id } = req.decoded;
   let { phone, email, countryNum } = req.body;
   const randNum = '' + Math.floor(100000 + Math.random() * 900000);
-  if (type == 0) {
+  const timenow = moment().unix();
+  let expiry = moment().add(10, 'minute').unix();
+  if (type === 'phone') {
     //PHONE
+    console.log(countryNum + phone, randNum);
     let a = await sendMessage(countryNum + phone, randNum);
     await db['verifycode']
       .create({
         uid: id,
         code: randNum,
+        type: 'phone',
+        countryNum: countryNum,
+        phone: phone,
+        expiry,
       })
       .then((_) => {
         respok(res, 'SENT');
       });
-  } else if (type == 1) {
+  } else if (type === 'email') {
     //mail
+    await sendEmailMessage(email, randNum);
+    await db['verifycode']
+      .create({
+        uid: id,
+        code: randNum,
+        type: 'email',
+        email: email,
+        expiry,
+      })
+      .then((_) => {
+        respok(res, 'SENT');
+      });
   }
 });
 
-router.get('/verify/:type/:code', async (req, res) => {
+router.post('/verify/:type/:code', auth, async (req, res) => {
+  let timenow = moment().unix();
+  let jwttoken;
+  let { id } = req.decoded;
   let { type, code } = req.params;
-  if (type == 'email') {
-  } else if (type == 'phone') {
+
+  if (type === 'email') {
+    await db['verifycode']
+      .findOne({
+        where: { code, type: 'email' },
+        raw: true,
+      })
+      .then(async (resp) => {
+        if (!resp) {
+          resperr(res, 'INVALID_CODE');
+        } else {
+          if (resp.expiry < timenow) {
+            resperr(res, 'CODE_EXPIRED');
+          } else {
+            await db['users']
+              .update({ mailVerified: 1, email: resp.email }, { where: { id } })
+              .then(async (respdata) => {
+                jwttoken = await createJWT({ id, email: resp.email });
+              });
+
+            respok(res, 'VALID_CODE', null, { result: jwttoken });
+          }
+        }
+      });
+  } else if (type === 'phone') {
+    await db['verifycode']
+      .findOne({
+        where: { code, type: 'phone' },
+        raw: true,
+      })
+      .then(async (resp) => {
+        if (!resp) {
+          resperr(res, 'INVALID_CODE');
+        } else {
+          if (resp.expiry < timenow) {
+            resperr(res, 'CODE_EXPIRED');
+          } else {
+            await db['users']
+              .update(
+                {
+                  phoneVerified: 1,
+                  phone: resp.phone,
+                  countryNum: resp.countryNum,
+                },
+                { where: { id } }
+              )
+              .then(async (respdata) => {
+                // console.log(resp);
+                jwttoken = await createJWT({
+                  id,
+                  phone: resp.phone,
+                  countryNum: resp.countryNum,
+                });
+              });
+
+            respok(res, 'VALID_CODE', null, { result: jwttoken });
+          }
+        }
+      });
   }
+});
+
+router.get('/my/position', async (req, res) => {
+  // let {id} = req.decoded;
+  let date0 = moment().startOf('days').unix();
+  let date1 = moment().endOf('days').unix();
+  let start = moment().startOf('days');
+  let end = moment().endOf('days');
+  let id = 114;
+  let result = {};
+  let today_betamount;
+  let today_lose_amount;
+  let today_win_amount;
+
+  // await db['']
+
+  await db['balances']
+    .findOne({
+      where: { uid: id, typestr: 'LIVE' },
+      raw: true,
+    })
+    .then((resp) => {
+      let { total, avail, locked } = resp;
+      result['total'] = total / 10 ** 6;
+      result['safeBalance'] = avail / 10 ** 6;
+    });
+  await db['betlogs']
+    .findAll({
+      where: {
+        uid: id,
+        expiry: { [Op.gte]: date0, [Op.lte]: date1 },
+        type: 'LIVE',
+      },
+      raw: true,
+    })
+    .then((resp) => {
+      let today_betamount = 0;
+      let today_lose_amount = 0;
+      let today_win_amount = 0;
+
+      resp.forEach((bet) => {
+        let { status, amount } = bet;
+        amount = amount / 10 ** 6;
+        today_betamount += amount;
+        if (status === 0) {
+          today_lose_amount += amount;
+        } else if (status === 1) {
+          today_win_amount += amount;
+        }
+      });
+
+      result['today_betamount'] = today_betamount;
+      result['today_lose_amount'] = today_lose_amount;
+      result['today_win_amount'] = today_win_amount;
+      result['profit_today'] = (
+        (today_win_amount / today_betamount) *
+        100
+      ).toFixed(2);
+    });
+
+  await db['betlogs']
+    .findAll({
+      where: { uid: id, type: 'LIVE' },
+      raw: true,
+    })
+    .then((resp) => {
+      let total_betamount = 0;
+      let total_lose_amount = 0;
+      let total_win_amount = 0;
+
+      resp.forEach((bet) => {
+        let { status, amount } = bet;
+        amount = amount / 10 ** 6;
+        total_betamount += amount;
+        if (status === 0) {
+          total_lose_amount += amount;
+        } else if (status === 1) {
+          total_win_amount += amount;
+        }
+      });
+
+      result['total_betamount'] = total_betamount;
+      // result['total_lose_amount'] = total_lose_amount;
+      result['total_win_amount'] = total_win_amount;
+      result['total_profit'] = (
+        (total_win_amount / total_betamount) *
+        100
+      ).toFixed(2);
+    });
+
+  respok(res, null, null, { result });
 });
 
 router.get('/balance', auth, async (req, res) => {

@@ -3,6 +3,8 @@ const { web3: web3API } = require('../configs/configweb3');
 const { contractaddr } = require('../configs/addresses');
 const { abi: abierc20 } = require('../contracts/abi/ERC20');
 const db = require('../models');
+const rpcURL =
+  'wss://eth-goerli.g.alchemy.com/v2/GpYKX0hISz5jDmvnPsCaWFrQVxr_gDG7';
 
 async function getConfirmations(txHash) {
   try {
@@ -68,11 +70,7 @@ const watchTokenTransfers = async () => {
   let jdata;
   console.log('watchstarted');
   // const web3ws = new Web3(new Web3.providers.WebsocketProvider('wss://polygon-mumbai.g.alchemy.com/v2/zhUm6jYUggnzx1n9k8XdJHcB0KhH5T7d'));
-  const web3ws = new Web3(
-    new Web3.providers.WebsocketProvider(
-      'wss://eth-goerli.g.alchemy.com/v2/GpYKX0hISz5jDmvnPsCaWFrQVxr_gDG7'
-    )
-  );
+  const web3ws = new Web3(new Web3.providers.WebsocketProvider(rpcURL));
 
   const tokenContract = new web3ws.eth.Contract(
     abierc20,
@@ -125,6 +123,6 @@ const watchTokenTransfers = async () => {
 
 watchTokenTransfers();
 
-module.exports = {
-  watchTokenTransfers,
-};
+// module.exports = {
+//   watchTokenTransfers,
+// };
