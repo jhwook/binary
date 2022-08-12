@@ -107,12 +107,26 @@ router.get('/symbols/:type/:offset/:limit', async (req, res) => {
     });
 });
 
-router.post('/v2/add/:type', (req, res) => {});
+router.post('/image/add/:assetId', upload_symbol.single('img'), (req, res) => {
+  const imgfile = req.file;
+  let imgurl = `${WEB_URL}/symbols/${imgfile.filename}`;
+  let { assetId } = req.params;
+  db['assets'].update({ imgurl }, { id: assetId }).then((resp) => {
+    respok(res, 'OK');
+  });
+});
+
+router.post('/aaa', upload_symbol.single('img'), (req, res) => {
+  console.log(req.file);
+
+  let { name } = req.body;
+  console.log(name);
+  respok(res, null, null, req.files);
+});
 
 router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
   // type => crypto / forex / stock
   const imgfile = req.file;
-  console.log(req.file);
   let imgurl = `${WEB_URL}/symbols/${imgfile.filename}`;
   let { name, baseAsset, targetAsset, tickerSrc, stockSymbol } = req.body;
   let { type } = req.params;
@@ -129,8 +143,6 @@ router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
         name,
         baseAsset,
         targetAsset,
-        tickerSrc,
-        imgurl,
         symbol,
         dispSymbol,
         APISymbol,
@@ -147,8 +159,6 @@ router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
         name,
         baseAsset,
         targetAsset,
-        tickerSrc,
-        imgurl,
         symbol,
         dispSymbol,
         APISymbol,
@@ -166,7 +176,6 @@ router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
         // baseAsset,
         // targetAsset,
         // tickerSrc,
-        imgurl,
         symbol: stockSymbol,
         dispSymbol: stockSymbol,
         APISymbol: stockSymbol,
@@ -190,12 +199,9 @@ router.patch('/setting/:assetId/:active', async (req, res) => {
     jfilter['active'] = active;
   }
   db['assets']
-    .update(
-      {
-        ...jfilter,
-      },
-      { where: { id: assetId } }
-    )
+    .update({
+      ...jfilter,
+    })
     .then((resp) => {
       respok(res, 'successfully modified');
     });
@@ -232,6 +238,20 @@ router.get('/api', async (req, res) => {
           assetkind: 'stock',
         });
       });
+    });
+});
+
+router.get('/ticker/price/:symbol', async (req, res) => {
+  let { symbol } = req.params;
+  await db['tickerprice']
+    .findAll({
+      where: { symbol },
+      order: [['id', 'DESC']],
+      limit: 5000,
+    })
+    .then((resp) => {
+      resp = resp.reverse();
+      respok(res, null, null, { resp });
     });
 });
 

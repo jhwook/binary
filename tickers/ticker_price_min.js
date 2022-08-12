@@ -36,12 +36,12 @@ module.exports = { getTickerPrice };
 // insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',450000, 500, 450000, 500, 900000,1000, 'user000', 'user111', 9000000, 'XRP_USDT');
 // insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',1000000, 1000, 1000000, 1000, 1000000,1000, 'user000', 'user111', 10000000, 'XRP_USDT');
 // insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',1000000, 1000, 1000000, 1000, 1000000,1000, 'user000', 'user111', 10000000, 'XRP_USDT');
-// CREATE TABLE `levelsettings` (
+// CREATE TABLE `tickerprice` (
 //   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
 //   `createdat` datetime DEFAULT current_timestamp(),
 //   `updatedat` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-//   `levelstr` varchar(50) DEFAULT NULL,
-//   `level` int(11) DEFAULT NULL,
-//   `basepoint` int(11) unsigned DEFAULT NULL,
+//   `symbol` varchar(50) DEFAULT NULL,
+//   `price` varchar(40) DEFAULT NULL,
+//   `assetId` int(11) unsigned DEFAULT NULL,
 //   PRIMARY KEY (`id`)
 // )

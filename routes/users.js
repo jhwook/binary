@@ -958,6 +958,13 @@ router.get('/query/:tblname/:offset/:limit', auth, (req, res) => {
       order: [['id', 'DESC']],
     })
     .then((respdata) => {
+      respdata.rows.map((el) => {
+        let { amount, localeAmount } = el;
+        amount = amount / 10 ** 6;
+        localeAmount = localeAmount / 10 ** 6;
+        el['amount'] = amount;
+        el['localeAmount'] = localeAmount;
+      });
       respok(res, null, null, { respdata });
     });
 });
