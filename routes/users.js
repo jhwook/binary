@@ -783,7 +783,8 @@ router.post('/verify/:type/:code', auth, async (req, res) => {
                   countryNum: resp.countryNum,
                 });
               });
-            d / respok(res, 'VALID_CODE', null, { result: jwttoken });
+              
+            respok(res, 'VALID_CODE', null, { result: jwttoken });
           }
         }
       });
@@ -797,18 +798,22 @@ router.get('/my/position', async (req, res) => {
   let start = moment().startOf('days');
   let end = moment().endOf('days');
   let id = 114;
+
   // let { id } = req.decoded;
   // if (Number.isFinite(+id)) {
   // } else {
   //   resperr(res, 'PLEASE-LOGIN');
   //   return;
   // }
+
   let result = {};
   let today_betamount;
   let today_lose_amount;
   let today_win_amount;
+
   // await db['']
   let promises = [];
+
   await db['balances']
     .findOne({
       where: { uid: id, typestr: 'LIVE' },
@@ -819,7 +824,7 @@ router.get('/my/position', async (req, res) => {
       result['total'] = total / 10 ** 6;
       result['safeBalance'] = avail / 10 ** 6;
     });
-
+    
   await db['betlogs']
     .findAll({
       where: {
@@ -863,6 +868,7 @@ router.get('/my/position', async (req, res) => {
       let total_betamount = 0;
       let total_lose_amount = 0;
       let total_win_amount = 0;
+
       let min_trade_amount = 0;
       let max_trade_amount = 0;
       let max_trade_profit = 0;
@@ -888,6 +894,7 @@ router.get('/my/position', async (req, res) => {
           max_profit = ((amount * diffRate) / 100).toFixed(2);
         }
 
+
         total_betamount += amount;
         if (status === 0) {
           total_lose_amount += amount;
@@ -903,12 +910,14 @@ router.get('/my/position', async (req, res) => {
         (total_win_amount / total_betamount) *
         100
       ).toFixed(2);
+
       result['max_trade_amount'] = max_trade_amount;
       result['min_trade_amount'] = min_trade_amount;
       result['max_profit'] = max_profit;
     });
 
   await Promise.all(promises);
+
   respok(res, null, null, { result });
 });
 

@@ -3,6 +3,7 @@ const {
   bindUsernameSocketid,
   unbindsocket,
   deleteSocketid,
+  unbindsocketid,
 } = require('../utils/sockets');
 
 module.exports = (io) => {
@@ -51,9 +52,12 @@ module.exports = (io) => {
         }
       }
     );
-    // console.log(userId, );
+
     if (userId) {
       bindUsernameSocketid(userId, socket.id);
+      console.log(
+        `@@@@@@@@@@@@@@@@@@@@@@@@${socket.id},${userId} socket connected`
+      );
     } else {
     }
     console.log(
@@ -74,7 +78,8 @@ module.exports = (io) => {
       //		unbindIpPortSocket( address , socket.id )
       deleteSocketid(socket.id);
       unbindsocket(userId);
-      console.log(`${socket.id} socket DISconnected`);
+      // unbindsocketid(socket.id);
+      console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
     });
   });
 
