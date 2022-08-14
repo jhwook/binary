@@ -16,6 +16,7 @@ var router = express.Router();
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const { sendMessage } = require('../services/twilio');
+const { sendEmailMessage } = require('../services/nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const e = require('express');
 
@@ -63,6 +64,8 @@ async function createJWT(jfilter) {
       'profileimage',
       'countryNum',
       'language',
+      'mailVerified',
+      'phoneVerified',
     ],
     raw: true,
   });
@@ -94,6 +97,7 @@ async function createJWT(jfilter) {
   if (!userinfo) {
     return false;
   }
+
   let token = jwt.sign(
     {
       type: 'JWT',
@@ -107,16 +111,12 @@ async function createJWT(jfilter) {
       issuer: 'EXPRESS',
     }
   );
+
   return {
     tokenId: token,
     ...userinfo,
   };
 }
-
-/* GET users listing. */
-router.get('/', function (req, res, next) {
-  res.send('respond with a resource');
-});
 
 /**
  * Check users auth status
@@ -469,6 +469,7 @@ router.post('/signup/:type', async (req, res) => {
           await db['referrals'].create({
             referer_uid: referer.id,
             referral_uid: jtoken.id,
+            isRefererBranch: 0,
           });
         }
       } else {
@@ -628,14 +629,18 @@ router.post('/login/:type', async (req, res) => {
       where: { phone, countryNum },
       raw: true,
     });
-    if (phoneChk.active === 0) {
-      resperr(res, 'ACCESS-NOT-ALLOWED');
-      return;
-    }
     if (!phoneChk) {
       resperr(res, 'PHONE-NUMBER-DOESNT-EXIST');
       return;
     }
+    if (phoneChk && phoneChk?.active === 0) {
+      resperr(res, 'ACCESS-NOT-ALLOWED');
+      return;
+    }
+    /**    if (!phoneChk) {
+      resperr(res, 'PHONE-NUMBER-DOESNT-EXIST');
+      return;
+    } */
     if (phoneChk.password != password) {
       resperr(res, 'INVALID-PASSWORD');
       return;
@@ -684,27 +689,227 @@ router.post('/send/verification/:type', auth, async (req, res) => {
   let { id } = req.decoded;
   let { phone, email, countryNum } = req.body;
   const randNum = '' + Math.floor(100000 + Math.random() * 900000);
-  if (type == 0) {
+  const timenow = moment().unix();
+  let expiry = moment().add(10, 'minute').unix();
+  if (type === 'phone') {
     //PHONE
+    console.log(countryNum + phone, randNum);
     let a = await sendMessage(countryNum + phone, randNum);
     await db['verifycode']
       .create({
         uid: id,
         code: randNum,
+        type: 'phone',
+        countryNum: countryNum,
+        phone: phone,
+        expiry,
       })
       .then((_) => {
         respok(res, 'SENT');
       });
-  } else if (type == 1) {
+  } else if (type === 'email') {
     //mail
+    await sendEmailMessage(email, randNum);
+    await db['verifycode']
+      .create({
+        uid: id,
+        code: randNum,
+        type: 'email',
+        email: email,
+        expiry,
+      })
+      .then((_) => {
+        respok(res, 'SENT');
+      });
   }
 });
 
-router.get('/verify/:type/:code', async (req, res) => {
+router.post('/verify/:type/:code', auth, async (req, res) => {
+  let timenow = moment().unix();
+  let jwttoken;
+  let { id } = req.decoded;
   let { type, code } = req.params;
-  if (type == 'email') {
-  } else if (type == 'phone') {
+
+  if (type === 'email') {
+    await db['verifycode']
+      .findOne({
+        where: { code, type: 'email' },
+        raw: true,
+      })
+      .then(async (resp) => {
+        if (!resp) {
+          resperr(res, 'INVALID_CODE');
+        } else {
+          if (resp.expiry < timenow) {
+            resperr(res, 'CODE_EXPIRED');
+          } else {
+            await db['users']
+              .update({ mailVerified: 1, email: resp.email }, { where: { id } })
+              .then(async (respdata) => {
+                jwttoken = await createJWT({ id, email: resp.email });
+              });
+
+            respok(res, 'VALID_CODE', null, { result: jwttoken });
+          }
+        }
+      });
+  } else if (type === 'phone') {
+    await db['verifycode']
+      .findOne({
+        where: { code, type: 'phone' },
+        raw: true,
+      })
+      .then(async (resp) => {
+        if (!resp) {
+          resperr(res, 'INVALID_CODE');
+        } else {
+          if (resp.expiry < timenow) {
+            resperr(res, 'CODE_EXPIRED');
+          } else {
+            await db['users']
+              .update(
+                {
+                  phoneVerified: 1,
+                  phone: resp.phone,
+                  countryNum: resp.countryNum,
+                },
+                { where: { id } }
+              )
+              .then(async (respdata) => {
+                // console.log(resp);
+                jwttoken = await createJWT({
+                  id,
+                  phone: resp.phone,
+                  countryNum: resp.countryNum,
+                });
+              });
+            d / respok(res, 'VALID_CODE', null, { result: jwttoken });
+          }
+        }
+      });
   }
+});
+
+router.get('/my/position', async (req, res) => {
+  // let {id} = req.decoded;
+  let date0 = moment().startOf('days').unix();
+  let date1 = moment().endOf('days').unix();
+  let start = moment().startOf('days');
+  let end = moment().endOf('days');
+  let id = 114;
+  // let { id } = req.decoded;
+  // if (Number.isFinite(+id)) {
+  // } else {
+  //   resperr(res, 'PLEASE-LOGIN');
+  //   return;
+  // }
+  let result = {};
+  let today_betamount;
+  let today_lose_amount;
+  let today_win_amount;
+  // await db['']
+  let promises = [];
+  await db['balances']
+    .findOne({
+      where: { uid: id, typestr: 'LIVE' },
+      raw: true,
+    })
+    .then((resp) => {
+      let { total, avail, locked } = resp;
+      result['total'] = total / 10 ** 6;
+      result['safeBalance'] = avail / 10 ** 6;
+    });
+
+  await db['betlogs']
+    .findAll({
+      where: {
+        uid: id,
+        expiry: { [Op.gte]: date0, [Op.lte]: date1 },
+        type: 'LIVE',
+      },
+      raw: true,
+    })
+    .then((resp) => {
+      let today_betamount = 0;
+      let today_lose_amount = 0;
+      let today_win_amount = 0;
+
+      resp.forEach((bet) => {
+        let { status, amount } = bet;
+        amount = amount / 10 ** 6;
+        today_betamount += amount;
+        if (status === 0) {
+          today_lose_amount += amount;
+        } else if (status === 1) {
+          today_win_amount += amount;
+        }
+      });
+
+      result['today_betamount'] = today_betamount;
+      result['today_lose_amount'] = today_lose_amount;
+      result['today_win_amount'] = today_win_amount;
+      result['profit_today'] = (
+        (today_win_amount / today_betamount) *
+        100
+      ).toFixed(2);
+    });
+
+  await db['betlogs']
+    .findAll({
+      where: { uid: id, type: 'LIVE' },
+      raw: true,
+    })
+    .then((resp) => {
+      let total_betamount = 0;
+      let total_lose_amount = 0;
+      let total_win_amount = 0;
+      let min_trade_amount = 0;
+      let max_trade_amount = 0;
+      let max_trade_profit = 0;
+      let max_profit = 0;
+
+      resp.forEach((bet, i) => {
+        let { status, amount, diffRate } = bet;
+        amount = amount / 10 ** 6;
+        // 최대 베팅금
+        if (amount > max_trade_amount) {
+          max_trade_amount = amount;
+        }
+        //최소 베팅금
+        if (i === 0 || amount < min_trade_amount) {
+          min_trade_amount = amount;
+        }
+
+        //최대 수익
+        if (
+          status === 1 &&
+          max_profit < ((amount * diffRate) / 100).toFixed(2)
+        ) {
+          max_profit = ((amount * diffRate) / 100).toFixed(2);
+        }
+
+        total_betamount += amount;
+        if (status === 0) {
+          total_lose_amount += amount;
+        } else if (status === 1) {
+          total_win_amount += amount;
+        }
+      });
+
+      result['total_betamount'] = total_betamount;
+      // result['total_lose_amount'] = total_lose_amount;
+      result['total_win_amount'] = total_win_amount;
+      result['total_profit'] = (
+        (total_win_amount / total_betamount) *
+        100
+      ).toFixed(2);
+      result['max_trade_amount'] = max_trade_amount;
+      result['min_trade_amount'] = min_trade_amount;
+      result['max_profit'] = max_profit;
+    });
+
+  await Promise.all(promises);
+  respok(res, null, null, { result });
 });
 
 router.get('/balance', auth, async (req, res) => {
@@ -783,6 +988,13 @@ router.get('/query/:tblname/:offset/:limit', auth, (req, res) => {
       order: [['id', 'DESC']],
     })
     .then((respdata) => {
+      respdata.rows.map((el) => {
+        let { amount, localeAmount } = el;
+        amount = amount / 10 ** 6;
+        localeAmount = localeAmount / 10 ** 6;
+        el['amount'] = amount;
+        el['localeAmount'] = localeAmount;
+      });
       respok(res, null, null, { respdata });
     });
 });
@@ -844,7 +1056,34 @@ router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
       respok(res, null, null, { bet_log: resp });
     });
 });
+const KEYS = Object.keys;
+const ISFINITE = Number.isFinite;
+router.put('/my/info', auth, async (req, res) => {
+  let { firstname, lastname, password, language, nickname } = req.body; // , profileimage
+  if (KEYS(req.body).length) {
+  } else {
+    resperr(res, 'REQ-BODY-EMPTY');
+    return;
+  }
+  let { id } = req.decoded;
+  if (ISFINITE(+id)) {
+  } else {
+    resperr(res, 'PLEASE-LOGIN', 58818);
+    return;
+  }
+  delete req.body['id'];
+  delete req.body['referercode'];
+  delete req.body['uuid'];
+  delete req.body['isadmin'];
+  delete req.body['isbranch'];
+  delete req.body['mailVerified'];
+  delete req.body['phoneVerified'];
+  delete req.body['active'];
 
+  db['users'].update({ ...req.body }, { where: { id } }).then((resp) => {
+    respok(res, 'CHANGED');
+  });
+});
 router.patch('/profile', auth, async (req, res) => {
   let { firstName, lastName, email } = req.body;
   let { id } = req.decoded;
@@ -863,6 +1102,16 @@ router.patch('/profile', auth, async (req, res) => {
     .then((_) => {
       respok(res, 'CHANGED');
     });
+});
+
+router.patch('/change/password', auth, (req, res) => {
+  let { id } = req.decoded;
+  let { password, confirmPassword } = req.body;
+  if (password !== confirmPassword) {
+    resperr(res, 'The password you entered does not match.');
+  } else {
+    db['users'].update({ password: password }, { where: { id } });
+  }
 });
 
 router.get('/predeposit', auth, async (req, res) => {
@@ -887,7 +1136,7 @@ router.get('/predeposit', auth, async (req, res) => {
 });
 
 router.get(
-  '/myreferrals/:offset/:limit/:orderkey/:orderval',
+  '/myreferrals/:offset/:limit/:orderkey/:orderval', // logfees
   auth,
   async (req, res) => {
     // /:offset/:limit/:orderkey/:orderval
@@ -977,7 +1226,7 @@ router.get(
 );
 
 router.get(
-  '/myreferrals/fee/log/:offset/:limit/:orderkey/:orderval',
+  '/myreferrals/fee/log/:offset/:limit/:orderkey/:orderval', // logfees
   // '/myreferrals/fee/log/:uid',
   auth,
   async (req, res) => {
@@ -996,7 +1245,8 @@ router.get(
       .then(async (resp) => {
         let { rows, count } = resp;
         let promises = rows.map(async (el) => {
-          let { feeamount, betamount, payer_uid } = el;
+          let { id: ID, feeamount, betamount, payer_uid } = el;
+          console.log('feeamount', ID, feeamount);
           await db['users']
             .findOne({
               where: { id: payer_uid },
@@ -1044,7 +1294,7 @@ router.get(
     //       //   where: {id: referral_uid},
     //       //   raw: true
     //       // })
-    //       let referral_user_logfee = await db['logfees'].findAndCountAll({
+    //       let referral_user_logfee = await db['log fees'].findAndCountAll({
     //         where: { payer_uid: referral_uid, recipient_uid: id },
     //         offset,
     //         limit,
@@ -1174,7 +1424,7 @@ router.get(
 );
 
 router.get(
-  '/branch/fee/log/:offset/:limit/:orderkey/:orderval',
+  '/branch/fee/log/:offset/:limit/:orderkey/:orderval', // logfees
   auth,
   async (req, res) => {
     let { offset, limit, orderkey, orderval } = req.params;
@@ -1227,6 +1477,11 @@ router.get(
       });
   }
 );
+
+router.get('/my/fee/setting', auth, async (req, res) => {
+  let { id } = req.decoded;
+  // await db['referrals'].find
+});
 
 // router.get('/')
 
