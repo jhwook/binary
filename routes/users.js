@@ -118,11 +118,6 @@ async function createJWT(jfilter) {
   };
 }
 
-/* GET users listing. */
-router.get('/', function (req, res, next) {
-  res.send('respond with a resource');
-});
-
 /**
  * Check users auth status
  */
@@ -474,6 +469,7 @@ router.post('/signup/:type', async (req, res) => {
           await db['referrals'].create({
             referer_uid: referer.id,
             referral_uid: jtoken.id,
+            isRefererBranch: 0,
           });
         }
       } else {
@@ -633,14 +629,18 @@ router.post('/login/:type', async (req, res) => {
       where: { phone, countryNum },
       raw: true,
     });
-    if (phoneChk.active === 0) {
-      resperr(res, 'ACCESS-NOT-ALLOWED');
-      return;
-    }
     if (!phoneChk) {
       resperr(res, 'PHONE-NUMBER-DOESNT-EXIST');
       return;
     }
+    if (phoneChk && phoneChk?.active === 0) {
+      resperr(res, 'ACCESS-NOT-ALLOWED');
+      return;
+    }
+    /**    if (!phoneChk) {
+      resperr(res, 'PHONE-NUMBER-DOESNT-EXIST');
+      return;
+    } */
     if (phoneChk.password != password) {
       resperr(res, 'INVALID-PASSWORD');
       return;
@@ -783,7 +783,7 @@ router.post('/verify/:type/:code', auth, async (req, res) => {
                   countryNum: resp.countryNum,
                 });
               });
-
+              
             respok(res, 'VALID_CODE', null, { result: jwttoken });
           }
         }
@@ -798,12 +798,21 @@ router.get('/my/position', async (req, res) => {
   let start = moment().startOf('days');
   let end = moment().endOf('days');
   let id = 114;
+
+  // let { id } = req.decoded;
+  // if (Number.isFinite(+id)) {
+  // } else {
+  //   resperr(res, 'PLEASE-LOGIN');
+  //   return;
+  // }
+
   let result = {};
   let today_betamount;
   let today_lose_amount;
   let today_win_amount;
 
   // await db['']
+  let promises = [];
 
   await db['balances']
     .findOne({
@@ -815,6 +824,7 @@ router.get('/my/position', async (req, res) => {
       result['total'] = total / 10 ** 6;
       result['safeBalance'] = avail / 10 ** 6;
     });
+    
   await db['betlogs']
     .findAll({
       where: {
@@ -859,9 +869,32 @@ router.get('/my/position', async (req, res) => {
       let total_lose_amount = 0;
       let total_win_amount = 0;
 
-      resp.forEach((bet) => {
-        let { status, amount } = bet;
+      let min_trade_amount = 0;
+      let max_trade_amount = 0;
+      let max_trade_profit = 0;
+      let max_profit = 0;
+
+      resp.forEach((bet, i) => {
+        let { status, amount, diffRate } = bet;
         amount = amount / 10 ** 6;
+        // 최대 베팅금
+        if (amount > max_trade_amount) {
+          max_trade_amount = amount;
+        }
+        //최소 베팅금
+        if (i === 0 || amount < min_trade_amount) {
+          min_trade_amount = amount;
+        }
+
+        //최대 수익
+        if (
+          status === 1 &&
+          max_profit < ((amount * diffRate) / 100).toFixed(2)
+        ) {
+          max_profit = ((amount * diffRate) / 100).toFixed(2);
+        }
+
+
         total_betamount += amount;
         if (status === 0) {
           total_lose_amount += amount;
@@ -877,7 +910,13 @@ router.get('/my/position', async (req, res) => {
         (total_win_amount / total_betamount) *
         100
       ).toFixed(2);
+
+      result['max_trade_amount'] = max_trade_amount;
+      result['min_trade_amount'] = min_trade_amount;
+      result['max_profit'] = max_profit;
     });
+
+  await Promise.all(promises);
 
   respok(res, null, null, { result });
 });
@@ -1026,7 +1065,34 @@ router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
       respok(res, null, null, { bet_log: resp });
     });
 });
+const KEYS = Object.keys;
+const ISFINITE = Number.isFinite;
+router.put('/my/info', auth, async (req, res) => {
+  let { firstname, lastname, password, language, nickname } = req.body; // , profileimage
+  if (KEYS(req.body).length) {
+  } else {
+    resperr(res, 'REQ-BODY-EMPTY');
+    return;
+  }
+  let { id } = req.decoded;
+  if (ISFINITE(+id)) {
+  } else {
+    resperr(res, 'PLEASE-LOGIN', 58818);
+    return;
+  }
+  delete req.body['id'];
+  delete req.body['referercode'];
+  delete req.body['uuid'];
+  delete req.body['isadmin'];
+  delete req.body['isbranch'];
+  delete req.body['mailVerified'];
+  delete req.body['phoneVerified'];
+  delete req.body['active'];
 
+  db['users'].update({ ...req.body }, { where: { id } }).then((resp) => {
+    respok(res, 'CHANGED');
+  });
+});
 router.patch('/profile', auth, async (req, res) => {
   let { firstName, lastName, email } = req.body;
   let { id } = req.decoded;
@@ -1045,6 +1111,16 @@ router.patch('/profile', auth, async (req, res) => {
     .then((_) => {
       respok(res, 'CHANGED');
     });
+});
+
+router.patch('/change/password', auth, (req, res) => {
+  let { id } = req.decoded;
+  let { password, confirmPassword } = req.body;
+  if (password !== confirmPassword) {
+    resperr(res, 'The password you entered does not match.');
+  } else {
+    db['users'].update({ password: password }, { where: { id } });
+  }
 });
 
 router.get('/predeposit', auth, async (req, res) => {
@@ -1069,7 +1145,7 @@ router.get('/predeposit', auth, async (req, res) => {
 });
 
 router.get(
-  '/myreferrals/:offset/:limit/:orderkey/:orderval',
+  '/myreferrals/:offset/:limit/:orderkey/:orderval', // logfees
   auth,
   async (req, res) => {
     // /:offset/:limit/:orderkey/:orderval
@@ -1159,7 +1235,7 @@ router.get(
 );
 
 router.get(
-  '/myreferrals/fee/log/:offset/:limit/:orderkey/:orderval',
+  '/myreferrals/fee/log/:offset/:limit/:orderkey/:orderval', // logfees
   // '/myreferrals/fee/log/:uid',
   auth,
   async (req, res) => {
@@ -1178,7 +1254,8 @@ router.get(
       .then(async (resp) => {
         let { rows, count } = resp;
         let promises = rows.map(async (el) => {
-          let { feeamount, betamount, payer_uid } = el;
+          let { id: ID, feeamount, betamount, payer_uid } = el;
+          console.log('feeamount', ID, feeamount);
           await db['users']
             .findOne({
               where: { id: payer_uid },
@@ -1226,7 +1303,7 @@ router.get(
     //       //   where: {id: referral_uid},
     //       //   raw: true
     //       // })
-    //       let referral_user_logfee = await db['logfees'].findAndCountAll({
+    //       let referral_user_logfee = await db['log fees'].findAndCountAll({
     //         where: { payer_uid: referral_uid, recipient_uid: id },
     //         offset,
     //         limit,
@@ -1356,7 +1433,7 @@ router.get(
 );
 
 router.get(
-  '/branch/fee/log/:offset/:limit/:orderkey/:orderval',
+  '/branch/fee/log/:offset/:limit/:orderkey/:orderval', // logfees
   auth,
   async (req, res) => {
     let { offset, limit, orderkey, orderval } = req.params;
@@ -1409,6 +1486,11 @@ router.get(
       });
   }
 );
+
+router.get('/my/fee/setting', auth, async (req, res) => {
+  let { id } = req.decoded;
+  // await db['referrals'].find
+});
 
 // router.get('/')
 
