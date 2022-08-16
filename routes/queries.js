@@ -42,15 +42,19 @@ router.get('/rows/:tblname', (req, res) => {
 router.get('/forex', async (req, res) => {
   let { type } = req.query;
   console.log('@@@@@@@@@@@type', type);
-  await axios
-    .get(
-      `https://api.twelvedata.com/price?symbol=${type}&apikey=c092ff5093bf4eef83897889e96b3ba7`
-    )
-    .then((resp) => {
-      let { price } = resp.data;
+  if (type === 'USD/USD') {
+    respok(res, null, null, { price: '1' });
+  } else {
+    await axios
+      .get(
+        `https://api.twelvedata.com/price?symbol=${type}&apikey=c092ff5093bf4eef83897889e96b3ba7`
+      )
+      .then((resp) => {
+        let { price } = resp.data;
 
-      respok(res, null, null, { price });
-    });
+        respok(res, null, null, { price });
+      });
+  }
 });
 
 router.patch('/set/fee', (req, res) => {

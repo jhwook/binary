@@ -53,15 +53,15 @@ cron.schedule('0 * * * * *', async () => {
 // };
 
 // socketMessage(io, socket);
-const socketFunc = (socket, id) => {
-  console.log('socket id@@@@@@@@@@@@@@@', id);
-};
+// const socketFunc = (socket, id) => {
+//   console.log('socket id@@@@@@@@@@@@@@@', id);
+// };
 
-const socketMessage = async (id, data) => {
-  // let usersocketid = await cliredisa.hget('USERNAME2SOCKID', String(id));
+// const socketMessage = async (id, data) => {
+//   // let usersocketid = await cliredisa.hget('USERNAME2SOCKID', String(id));
 
-  socket.to(id).emit('bet_closed', data);
-};
+//   socket.to(id).emit('bet_closed', data);
+// };
 
 const closeBet = async () => {
   const timenow = moment().startOf('minute');
@@ -172,6 +172,7 @@ const closeBet = async () => {
                         .create({
                           uid: v.uid,
                           assetId: v.assetId,
+                          assetName: name,
                           amount: v.amount,
                           starting: v.starting,
                           expiry: v.expiry,
@@ -208,10 +209,10 @@ const closeBet = async () => {
                             profit: profit,
                             data: resp.dataValues,
                           };
-                          console.log(
-                            '============socket id===============',
-                            usersocketid
-                          );
+                          // console.log(
+                          //   '============socket id===============',
+                          //   usersocketid
+                          // );
                           // socket
                           //   .to(usersocketid)
                           //   .emit('bet_closed', socketData);
@@ -234,6 +235,7 @@ const closeBet = async () => {
                           .create({
                             uid: v.uid,
                             assetId: v.assetId,
+                            assetName: name,
                             amount: v.amount,
                             starting: v.starting,
                             expiry: v.expiry,
@@ -277,6 +279,7 @@ const closeBet = async () => {
                           .create({
                             uuid: v.uuid,
                             assetId: v.assetId,
+                            assetName: name,
                             amount: v.amount,
                             starting: v.starting,
                             expiry: v.expiry,
@@ -855,5 +858,4 @@ const settlebets = async (
 
 module.exports = {
   closeBet,
-  socketFunc,
 };

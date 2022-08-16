@@ -47,6 +47,10 @@ const unbindsocket = (username) => {
   // cliredisa.hdel(KEYNAME_USERID_2_SOCKETID, userid);
 };
 
+const unbindsocketid = (socketid) => {
+  cliredisa.hdel('SOCKID2USERNAME', socketid);
+};
+
 const getSocketidFromUserid = async (userid) => {
   return await cliredisa.hget(KEYNAME_USERID_2_SOCKETID, userid);
 }; //
@@ -71,4 +75,5 @@ module.exports = {
   getSocketidFromUserid,
   clearsockets,
   sendpushnoti,
+  unbindsocketid,
 };

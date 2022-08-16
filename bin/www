@@ -1,6 +1,5 @@
 var app = require('../app');
 var listener = require('../listener');
-var schedule = require('../schedule');
 var debug = require('debug')('bin-api');
 var http = require('http');
 
@@ -32,9 +31,10 @@ const {
   bindUsernameSocketid,
   unbindsocket,
   deleteSocketid,
+  unbindsocketid,
 } = require('../utils/sockets');
 const jwt = require('jsonwebtoken');
-const { socketTest } = require('../schedule/sockettest');
+
 const server = http.createServer(app);
 const io = require('socket.io')(server, {
   cors: {
@@ -85,7 +85,7 @@ const io = require('socket.io')(server, {
 //     console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
 //   });
 // });
-const { socketFunc } = require('../schedule/closeBets');
+
 const https_io = require('socket.io')(server_https, {
   cors: {
     origin: '*',
@@ -96,45 +96,36 @@ const https_io = require('socket.io')(server_https, {
   allowEIO3: true,
 });
 
-https_io
-  .use((socket, next) => {
-    next();
-  })
-  .on('connection', async (socket) => {
-    // console.log(socket.decoded, ' / ', socket.id);
-    // console.log(socket.sids);
+// https_io
+//   .use((socket, next) => {
+//     next();
+//   })
+//   .on('connection', async (socket) => {
+//     // console.log(socket.decoded, ' / ', socket.id);
+//     // console.log(socket.sids);
 
-    let userId;
-    await jwt.verify(
-      socket.handshake.query.token,
-      process.env.JWT_SECRET,
-      function (err, decoded) {
-        if (err) return next(new Error('Authentication error'));
-        socket.decoded = decoded;
-        if (socket.decoded.id) {
-          userId = decoded.id;
-        }
-        if (socket.decoded.demo_uuid) {
-          userId = decoded.demo_uuid;
-        }
-      }
-    );
-    // console.log(userId, );
-    if (userId) {
-      bindUsernameSocketid(userId, socket.id);
-    } else {
-    }
-    console.log(
-      `@@@@@@@@@@@@@@@@@@@@@@@@${socket.id},${userId} socket connected`
-    );
-    socketFunc(socket, socket.id);
-    socket.on('disconnect', () => {
-      //		unbindIpPortSocket( address , socket.id )
-      deleteSocketid(socket.id);
-      unbindsocket(userId);
-      console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
-    });
-  });
+//     let userId;
+//     await jwt.verify(
+//       socket.handshake.query.token,
+//       process.env.JWT_SECRET,
+//       function (err, decoded) {
+//         if (err) return next(new Error('Authentication error'));
+//         socket.decoded = decoded;
+//         if (socket.decoded.id) {
+//           userId = decoded.id;
+//         }
+//         if (socket.decoded.demo_uuid) {
+//           userId = decoded.demo_uuid;
+//         }
+//       }
+//     );
+//     // console.log(userId, );
+//     if (userId) {
+//       bindUsernameSocketid(userId, socket.id);
+//     } else {
+//     }
+
+//   });
 
 // https_io.on('connection', (socket) => {
 //   console.log('connected', socket.id);

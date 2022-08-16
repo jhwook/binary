@@ -1,8 +1,6 @@
-/* jshint indent: 2 */
-
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
-    'verifycode',
+    'networktoken',
     {
       id: {
         autoIncrement: true,
@@ -19,38 +17,39 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DATE,
         allowNull: true,
       },
-      uid: {
-        type: DataTypes.INTEGER(11).UNSIGNED,
-        allowNull: false,
-      },
-      code: {
-        type: DataTypes.INTEGER(11),
+      name: {
+        type: DataTypes.STRING(11),
         allowNull: true,
       },
-      expiry: {
-        type: DataTypes.BIGINT,
+      deciaml: {
+        type: DataTypes.INTEGER(30),
         allowNull: true,
       },
-      type: {
-        type: DataTypes.STRING(10),
+      contractaddress: {
+        type: DataTypes.STRING(80),
         allowNull: true,
       },
-      email: {
+      networkidnumber: {
+        type: DataTypes.INTEGER(20).UNSIGNED,
+        allowNull: true,
+      },
+      nettype: {
+        type: DataTypes.STRING(11),
+        allowNull: true,
+      },
+      uuid: {
         type: DataTypes.STRING(60),
         allowNull: true,
+        defaultValue: sequelize.fn('uuid'),
       },
-      phone: {
-        type: DataTypes.STRING(60),
-        allowNull: true,
-      },
-      countryNum: {
-        type: DataTypes.STRING(10),
+      networkurl: {
+        type: DataTypes.STRING(100),
         allowNull: true,
       },
     },
     {
       sequelize,
-      tableName: 'verifycode',
+      tableName: 'networktoken',
     }
   );
 };
