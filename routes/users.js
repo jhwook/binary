@@ -332,6 +332,9 @@ router.post('/signup/:type', async (req, res) => {
               //TOKEN GENERATE
               jwttoken = createJWT({ id: new_acc.id });
             });
+          db['usernoticesettings'].create({
+            uid: new_acc.id,
+          });
         });
     }
     /////////////////////////////////////////////// EMAIL REGISTER ///////////////////////////////////////////////
@@ -385,6 +388,9 @@ router.post('/signup/:type', async (req, res) => {
             transaction: t,
           }
         );
+        db['usernoticesettings'].create({
+          uid: new_acc.id,
+        });
       });
     } catch (err) {
       respok(res, 'FAILED');
@@ -431,6 +437,9 @@ router.post('/signup/:type', async (req, res) => {
             typestr: 'LIVE',
           },
         ]);
+        db['usernoticesettings'].create({
+          uid: new_acc.id,
+        });
       });
     //TOKEN GENERATE
     jwttoken = createJWT({ phone, countryNum, password });
@@ -465,7 +474,26 @@ router.post('/signup/:type', async (req, res) => {
                 }
               );
             });
-        } else {
+        } else if (referer.isadmin == 3) {
+          await db['referrals']
+            .create({
+              referer_uid: referer.id,
+              referral_uid: jtoken.id,
+              isRefererBranch: 1,
+            })
+            .then(async (_) => {
+              await db['users'].update(
+                {
+                  isbranch: 2,
+                },
+                {
+                  where: {
+                    id: jtoken.id,
+                  },
+                }
+              );
+            });
+        } else if (referer.isadmin == 2) {
           await db['referrals'].create({
             referer_uid: referer.id,
             referral_uid: jtoken.id,
@@ -684,6 +712,155 @@ router.post('/login/:type', async (req, res) => {
   // respok(res, 'TOKEN_CREATED', null, {token: jwttoken})
 });
 
+router.get('/notice/setting', auth, async (req, res) => {
+  let { id } = req.decoded;
+  await db['usernoticesettings']
+    .findOne({
+      where: { uid: id },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
+router.patch('/notice/set/:field/:val', auth, async (req, res) => {
+  let { id } = req.decoded;
+  let { field, val } = req.query;
+  let jfilter = {};
+  jfilter[field] = val;
+  await db['usernoticesettings']
+    .update({ ...jfilter }, { where: { uid: id } })
+    .then((resp) => respok(res, 'CHANGED'));
+});
+
+router.patch('/change/password/:type', async (req, res) => {
+  let { type } = req.params;
+  let { password, confirmPassword, email, countryNum, phone } = req.body;
+
+  if (password !== confirmPassword) {
+    resperr(res, 'The password you entered does not match.');
+  }
+  let user;
+  if (type === 'email') {
+    user = await db['users'].findOne({
+      where: { email: email },
+      raw: true,
+    });
+    db['users']
+      .update({ password: password }, { where: { id: user.id } })
+      .then((resp) => {
+        respok(res, 'successfully changed');
+      });
+  }
+  if (type === 'phone') {
+    user = await db['users'].findOne({
+      where: { countryNum: countryNum, phone: phone },
+      raw: true,
+    });
+    db['users']
+      .update({ password: password }, { where: { id: user.id } })
+      .then((resp) => {
+        respok(res, 'successfully changed');
+      });
+  }
+});
+
+router.post('/reset/password/:type', async (req, res) => {
+  let { type } = req.params;
+  let { email, countryNum, phone } = req.body;
+  const randNum = '' + Math.floor(100000 + Math.random() * 900000);
+  const timenow = moment().unix();
+  let expiry = moment().add(10, 'minute').unix();
+  if (type === 'email') {
+    let user = await db['users']
+      .findOne({ where: { email: email }, raw: true })
+      .then((resp) => {
+        if (!resp) {
+          resperr(res, 'NOT_EXIST_USER');
+        } else {
+          return resp;
+        }
+      });
+    await sendEmailMessage(email, randNum);
+    await db['verifycode']
+      .create({
+        uid: user.id,
+        code: randNum,
+        type: 'email',
+        email: email,
+        expiry,
+      })
+      .then((_) => {
+        respok(res, 'SENT');
+      });
+  } else if (type === 'phone') {
+    let user = await db['users']
+      .findOne({ where: { countryNum: countryNum, phone: phone }, raw: true })
+      .then((resp) => {
+        if (!resp) {
+          resperr(res, 'NOT_EXIST_USER');
+        } else {
+          return resp;
+        }
+      });
+    await sendMessage(countryNum + phone, randNum);
+    await db['verifycode']
+      .create({
+        uid: id,
+        code: randNum,
+        type: 'phone',
+        countryNum: countryNum,
+        phone: phone,
+        expiry,
+      })
+      .then((_) => {
+        respok(res, 'SENT');
+      });
+  }
+});
+
+router.post('/reset/verify/:type/:code', async (req, res) => {
+  let timenow = moment().unix();
+  let { type, code } = req.params;
+
+  if (type === 'email') {
+    await db['verifycode']
+      .findOne({
+        where: { code, type: 'email' },
+        raw: true,
+      })
+      .then(async (resp) => {
+        if (!resp) {
+          resperr(res, 'INVALID_CODE');
+        } else {
+          if (resp.expiry < timenow) {
+            resperr(res, 'CODE_EXPIRED');
+          } else {
+            respok(res, 'VALID_CODE');
+          }
+        }
+      });
+  } else if (type === 'phone') {
+    await db['verifycode']
+      .findOne({
+        where: { code, type: 'phone' },
+        raw: true,
+      })
+      .then(async (resp) => {
+        if (!resp) {
+          resperr(res, 'INVALID_CODE');
+        } else {
+          if (resp.expiry < timenow) {
+            resperr(res, 'CODE_EXPIRED');
+          } else {
+            respok(res, 'VALID_CODE');
+          }
+        }
+      });
+  }
+});
+
 router.post('/send/verification/:type', auth, async (req, res) => {
   let { type } = req.params;
   let { id } = req.decoded;
@@ -783,20 +960,20 @@ router.post('/verify/:type/:code', auth, async (req, res) => {
                   countryNum: resp.countryNum,
                 });
               });
-            d / respok(res, 'VALID_CODE', null, { result: jwttoken });
+            respok(res, 'VALID_CODE', null, { result: jwttoken });
           }
         }
       });
   }
 });
 
-router.get('/my/position', async (req, res) => {
-  // let {id} = req.decoded;
+router.get('/my/position', auth, async (req, res) => {
+  let { id } = req.decoded;
   let date0 = moment().startOf('days').unix();
   let date1 = moment().endOf('days').unix();
   let start = moment().startOf('days');
   let end = moment().endOf('days');
-  let id = 114;
+  // let id = 114;
   // let { id } = req.decoded;
   // if (Number.isFinite(+id)) {
   // } else {
@@ -809,6 +986,46 @@ router.get('/my/position', async (req, res) => {
   let today_win_amount;
   // await db['']
   let promises = [];
+  // let userLevel = ['Bronze', 'Silver', 'Gold', 'Diamond'];
+  await db['users']
+    .findOne({
+      where: { id },
+      raw: true,
+    })
+    .then(async (resp) => {
+      result['firstName'] = resp.firstname;
+      result['lastName'] = resp.lastname;
+      result['level'] = resp.level;
+      if (resp.isadmin === 0) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: `FEE_TO_REFERER_${I_LEVEL[resp.level]}` },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      } else if (resp.isadmin === 1 || resp.isadmin === 3) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: 'FEE_TO_BRANCH' },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      } else if (resp.isadmin === 2) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: 'FEE_TO_ADMIN' },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      }
+    });
+
   await db['balances']
     .findOne({
       where: { uid: id, typestr: 'LIVE' },
@@ -816,8 +1033,8 @@ router.get('/my/position', async (req, res) => {
     })
     .then((resp) => {
       let { total, avail, locked } = resp;
-      result['total'] = total / 10 ** 6;
-      result['safeBalance'] = avail / 10 ** 6;
+      result['total'] = (total / 10 ** 6).toFixed(2);
+      result['safeBalance'] = (avail / 10 ** 6).toFixed(2);
     });
 
   await db['betlogs']
@@ -848,10 +1065,14 @@ router.get('/my/position', async (req, res) => {
       result['today_betamount'] = today_betamount;
       result['today_lose_amount'] = today_lose_amount;
       result['today_win_amount'] = today_win_amount;
-      result['profit_today'] = (
-        (today_win_amount / today_betamount) *
-        100
-      ).toFixed(2);
+      if (today_betamount === 0) {
+        result['profit_today'] = 0;
+      } else {
+        result['profit_today'] = (
+          (today_win_amount / today_betamount) *
+          100
+        ).toFixed(2);
+      }
     });
 
   await db['betlogs']
@@ -859,7 +1080,8 @@ router.get('/my/position', async (req, res) => {
       where: { uid: id, type: 'LIVE' },
       raw: true,
     })
-    .then((resp) => {
+    .then(async (resp) => {
+      let total_bet_count = 0;
       let total_betamount = 0;
       let total_lose_amount = 0;
       let total_win_amount = 0;
@@ -867,10 +1089,26 @@ router.get('/my/position', async (req, res) => {
       let max_trade_amount = 0;
       let max_trade_profit = 0;
       let max_profit = 0;
+      let win_count = 0;
+
+      let total_feeamount = 0;
+      await db['logfees']
+        .findAll({
+          where: { payer_uid: id },
+          raw: true,
+          attributes: [
+            [db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')), 'sum'],
+          ],
+        })
+        .then((resp) => {
+          let [{ sum }] = resp;
+          total_feeamount = sum / 10 ** 6;
+        });
 
       resp.forEach((bet, i) => {
         let { status, amount, diffRate } = bet;
         amount = amount / 10 ** 6;
+        total_bet_count += 1;
         // 최대 베팅금
         if (amount > max_trade_amount) {
           max_trade_amount = amount;
@@ -889,14 +1127,17 @@ router.get('/my/position', async (req, res) => {
         }
 
         total_betamount += amount;
+
         if (status === 0) {
           total_lose_amount += amount;
         } else if (status === 1) {
+          win_count += 1;
           total_win_amount += amount;
         }
       });
 
-      result['total_betamount'] = total_betamount;
+      result['deal'] = total_bet_count;
+      result['trading_turnover'] = total_betamount;
       // result['total_lose_amount'] = total_lose_amount;
       result['total_win_amount'] = total_win_amount;
       result['total_profit'] = (
@@ -906,6 +1147,9 @@ router.get('/my/position', async (req, res) => {
       result['max_trade_amount'] = max_trade_amount;
       result['min_trade_amount'] = min_trade_amount;
       result['max_profit'] = max_profit;
+      result['net_turnover'] = (total_win_amount - total_feeamount).toFixed(2);
+      result['hedged_trades'] = total_lose_amount;
+      result['average_profit'] = (total_win_amount / win_count).toFixed(2);
     });
 
   await Promise.all(promises);
@@ -1085,13 +1329,15 @@ router.put('/my/info', auth, async (req, res) => {
   });
 });
 router.patch('/profile', auth, async (req, res) => {
-  let { firstName, lastName, email } = req.body;
+  let { firstName, lastName, email, password } = req.body;
   let { id } = req.decoded;
+  let jwttoken;
   db['users']
     .update(
       {
         firstname: firstName,
         lastname: lastName,
+        password: password,
       },
       {
         where: {
@@ -1099,19 +1345,14 @@ router.patch('/profile', auth, async (req, res) => {
         },
       }
     )
-    .then((_) => {
-      respok(res, 'CHANGED');
+    .then(async (_) => {
+      jwttoken = await createJWT({
+        id,
+        firstname: firstName,
+        lastname: lastName,
+      });
+      respok(res, 'CHANGED', null, { jwttoken });
     });
-});
-
-router.patch('/change/password', auth, (req, res) => {
-  let { id } = req.decoded;
-  let { password, confirmPassword } = req.body;
-  if (password !== confirmPassword) {
-    resperr(res, 'The password you entered does not match.');
-  } else {
-    db['users'].update({ password: password }, { where: { id } });
-  }
 });
 
 router.get('/predeposit', auth, async (req, res) => {
@@ -1429,12 +1670,61 @@ router.get(
   async (req, res) => {
     let { offset, limit, orderkey, orderval } = req.params;
     let { id } = req.decoded;
+    let { searchkey, startDate, endDate } = req.query;
+    let jfilter = {};
+    let jfilter2 = {};
     offset = +offset;
     limit = +limit;
-
+    if (startDate) {
+      jfilter = {
+        ...jfilter,
+        createdat: {
+          [Op.gte]: moment(startDate).format('YYYY-MM-DD HH:mm:ss'),
+        },
+      };
+    }
+    if (endDate) {
+      jfilter = {
+        ...jfilter,
+        createdat: {
+          [Op.lte]: moment(endDate).format('YYYY-MM-DD HH:mm:ss'),
+        },
+      };
+    }
+    if (startDate && endDate) {
+      jfilter = {
+        ...jfilter,
+        createdat: {
+          [Op.gte]: moment(startDate).format('YYYY-MM-DD HH:mm:ss'),
+          [Op.lte]: moment(endDate).format('YYYY-MM-DD HH:mm:ss'),
+        },
+      };
+    }
+    let userList = [];
+    if (searchkey) {
+      await db['users']
+        .findAll({
+          where: {
+            email: {
+              [Op.like]: `%${searchkey}%`,
+            },
+          },
+          raw: true,
+        })
+        .then((resp) => {
+          resp.map((user) => {
+            let { id } = user;
+            userList.push(id);
+          });
+        });
+      jfilter = {
+        ...jfilter,
+        payer_uid: { [Op.in]: userList },
+      };
+    }
     db['logfees']
       .findAndCountAll({
-        where: { recipient_uid: id },
+        where: { ...jfilter, recipient_uid: id },
         raw: true,
         offset,
         limit,
@@ -1459,6 +1749,16 @@ router.get(
           // }).then((resp) => {
           //   el['referer_user'] = resp
           // })
+          let fee_percent;
+          await db['feesettings']
+            .findOne({
+              where: { key_: 'FEE_TO_BRANCH' },
+              raw: true,
+            })
+            .then((resp) => {
+              fee_percent = resp.value_ / 10000;
+              el['received_percent'] = resp.value_ / 100;
+            });
           await db['assets']
             .findOne({
               where: { id: assetId },
@@ -1468,9 +1768,9 @@ router.get(
               el['assets'] = resp;
             });
           el['received_amount'] = (feeamount / 10 ** 6).toFixed(2);
-          el['received_percent'] = 2.5;
+
           el['using'] = (betamount / 10 ** 6).toFixed(2);
-          el['profit'] = (feeamount / 10 ** 6 / 0.025).toFixed(2);
+          el['profit'] = (feeamount / 10 ** 6 / fee_percent).toFixed(2);
         });
         await Promise.all(promises);
         respok(res, null, null, { resp });
@@ -1480,7 +1780,22 @@ router.get(
 
 router.get('/my/fee/setting', auth, async (req, res) => {
   let { id } = req.decoded;
-  // await db['referrals'].find
+
+  let user = await db['users'].findOne({
+    where: { id },
+    raw: true,
+  });
+
+  await db['referrals']
+    .findAll({
+      where: { referral_uid: id },
+      raw: true,
+    })
+    .then((resp) => {
+      resp.map((el) => {
+        let { referer_uid, isRefererBranch } = el;
+      });
+    });
 });
 
 // router.get('/')
