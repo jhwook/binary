@@ -297,14 +297,16 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
     })
     .then(async (respdata) => {
       let promises = respdata.map(async (el) => {
-        let { uid, id, amount } = el;
+        let { uid, id, amount, localeAmount } = el;
+        // localeAmount = localeAmount / 10 ** 6;
+        // el['localeAmount'] = localeAmount;
         el['user'] = await db['users'].findOne({
           where: { id: uid },
           raw: true,
         });
         await db['transactions']
           .findAll({
-            where: { uid, typestr: 'DEPOSIT', id: { [Op.lte]: id } },
+            where: { uid, typestr: 'DEPOSIT', status: 1, id: { [Op.lte]: id } },
             raw: true,
             order: [['id', 'ASC']],
             attributes: [
@@ -365,3 +367,5 @@ router.patch('/branch/transfer', auth, async (req, res) => {
   }
 });
 module.exports = router;
+
+// insert into networktoken (name, decimal, contractaddress,networkidnumber, nettype) values ();

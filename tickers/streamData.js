@@ -38,9 +38,13 @@ const getStreamStockData = async () => {
 twelvedataSocket.addEventListener('message', function (event) {
   // console.log('Message from server ', JSON.parse(event.data));
   let data = JSON.parse(event.data);
-
+  // console.log(data);
   if (data.event === 'price') {
     cliredisa.hset('STREAM_ASSET_PRICE', data.symbol, data.price);
+    // db['tickerprice'].create({
+    //   symbol: data.symbol,
+    //   price: data.price,
+    // });
   }
 });
 
@@ -82,6 +86,10 @@ finnhubSocket.addEventListener('message', function (event) {
       p = p.toFixed(5);
       // console.log(s, p);
       cliredisa.hset('STREAM_ASSET_PRICE', s, p);
+      // db['tickerprice'].create({
+      //   symbol: s,
+      //   price: p,
+      // });
     });
   }
 });

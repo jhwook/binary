@@ -2,7 +2,7 @@
 
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
-    'verifycode',
+    'tickerprice',
     {
       id: {
         autoIncrement: true,
@@ -19,38 +19,22 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.DATE,
         allowNull: true,
       },
-      uid: {
-        type: DataTypes.INTEGER(11).UNSIGNED,
-        allowNull: false,
+      symbol: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
       },
-      code: {
+      price: {
+        type: DataTypes.STRING(40),
+        allowNull: true,
+      },
+      assetId: {
         type: DataTypes.INTEGER(11),
-        allowNull: true,
-      },
-      expiry: {
-        type: DataTypes.BIGINT,
-        allowNull: true,
-      },
-      type: {
-        type: DataTypes.STRING(10),
-        allowNull: true,
-      },
-      email: {
-        type: DataTypes.STRING(60),
-        allowNull: true,
-      },
-      phone: {
-        type: DataTypes.STRING(60),
-        allowNull: true,
-      },
-      countryNum: {
-        type: DataTypes.STRING(10),
         allowNull: true,
       },
     },
     {
       sequelize,
-      tableName: 'verifycode',
+      tableName: 'tickerprice',
     }
   );
 };

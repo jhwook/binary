@@ -14,8 +14,79 @@ const { web3 } = require('../configs/configweb3');
 const WEB_URL = 'https://options1.net/resource';
 const { I_LEVEL } = require('../configs/userlevel');
 const axios = require('axios');
+const { convaj } = require('../utils/common');
 
 var router = express.Router();
+const ISFINITE = Number.isFinite;
+/***************/
+const query_count_visits_24h = async (_) => {
+  let start_date = moment().startOf('days');
+  let end_date = moment().endOf('days');
+  return await db['loginhistories'].count({
+    where: {
+      createdat: {
+        [Op.gte]: start_date.format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: end_date.format('YYYY-MM-DD HH:mm:ss'),
+      },
+    },
+    raw: true,
+  });
+};
+const query_payout_amount_24h = async (_) => {
+  let date1 = moment().format('YYYY-MM-DD HH:mm:ss');
+  let date0 = moment().subtract(24, 'hours').format('YYYY-MM-DD HH:mm:ss');
+  let resp = await db.sequelize.query(
+    `select sum(winamount) as sumwinamount from betlogs where  createdat>='${date0}' and createdat<='${date1}'`
+  );
+  if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].sumwinamount)) {
+    return resp[0][0].sumwinamount;
+  } else {
+    return null;
+  }
+};
+const query_betsumamount_24h = async (_) => {
+  let date1 = moment().format('YYYY-MM-DD HH:mm:ss');
+  let date0 = moment().subtract(24, 'hours').format('YYYY-MM-DD HH:mm:ss');
+  let resp = await db.sequelize.query(
+    `select sum(amount) as sumamount from betlogs where createdat>='${date0}' and createdat<='${date1}'`
+  );
+  if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].sumamount)) {
+    return resp[0][0].sumamount;
+  } else {
+    return null;
+  }
+};
+const query_betcount_24h = async (_) => {
+  let date1 = moment().format('YYYY-MM-DD HH:mm:ss');
+  let date0 = moment().subtract(24, 'hours').format('YYYY-MM-DD HH:mm:ss');
+  let resp = await db.sequelize.query(
+    `select count(id) as countbets from betlogs where createdat>='${date0}' and createdat<='${date1}'`
+  );
+  if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].countbets)) {
+    return resp[0][0].countbets;
+  } else {
+    return null;
+  }
+};
+router.get('/dashboard', (req, res) => {
+  let aproms = [];
+  aproms[aproms.length] = query_count_visits_24h();
+  aproms[aproms.length] = query_betsumamount_24h();
+  aproms[aproms.length] = query_betcount_24h();
+  aproms[aproms.length] = query_payout_amount_24h();
+  Promise.all(aproms).then((list) => {
+    respok(res, null, null, {
+      respdata: {
+        COUNT_USER_VISITS_24h: list[0],
+        SUM_OF_BET_AMOUNTS_24h: list[1],
+        COUNT_OF_BETS_24h: list[2],
+        SUM_OF_PAYOUT_AMOUNTS_24h: list[3],
+      },
+    });
+  });
+});
+
+/***************/
 async function createJWT(jfilter) {
   let userwallet;
   let userinfo = await db['users'].findOne({
@@ -83,6 +154,45 @@ async function createJWT(jfilter) {
     ...userinfo,
   };
 }
+const flip_forex_base_quote_currencies = (str) => {
+  let arr = str.split('/');
+  return arr.reverse().join('/');
+};
+router.get('/exchangerates', async (req, res) => {
+  let arrsymbols = ['USD/CNY', 'USD/HKD', 'USD/KRW'];
+  let aproms = [];
+  arrsymbols.forEach((elem) => {
+    aproms[aproms.length] = axios.get(
+      `https://api.twelvedata.com/exchange_rate?symbol=${elem}&apikey=c092ff5093bf4eef83897889e96b3ba7`
+    );
+  });
+  Promise.all(aproms).then((list) => {
+    list = list.map((elem) => elem.data);
+
+    list.forEach((elem, idx) => {
+      let jdata = { ...elem };
+      jdata['rate'] = (+elem.rate).toFixed(4);
+      list[idx] = jdata;
+    });
+    LOGGER(list);
+    if (true) {
+      respok(res, null, null, { list });
+    }
+    if (false) {
+      let list_02 = [];
+      list.forEach((elem) => {
+        let jdata = { ...elem };
+        jdata['symbol'] = flip_forex_base_quote_currencies(elem.symbol);
+        jdata['rate'] = (+elem.rate).toFixed(4);
+        list_02[list_02.length] = jdata;
+      });
+      respok(res, null, null, { list: list_02 });
+    }
+    //    let respdata = convaj(list, 'symbol', 'rate');
+    //		respok ( res,null,null ,{ respdata } )
+    //    respok(res, null, null, { list });
+  });
+});
 router.get('/exchange_rate', async (req, res) => {
   let { symbol } = req.query;
   await axios
@@ -268,7 +378,6 @@ router.get('/sum/rows/:tablename/:fieldname', async (req, res) => {
     jfilter[filterkey] = filterval;
   }
   // jfilter[fieldname] = fieldval;
-
   console.log('req.query', req.query);
 
   if (date0) {
@@ -582,9 +691,21 @@ router.get('/list/users/:offset/:limit', async (req, res) => {
     });
 });
 
+router.get('/asset/list/:type', async (req, res) => {
+  let { type } = req.params;
+  await db['assets']
+    .findAll({
+      where: { groupstr: type },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
 router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
   let { asset, offset, limit } = req.params;
-  let { assetId, date0, date1 } = req.query;
+  let { assetId, date0, date1, searchkey } = req.query;
   // asset = crypto / forex / stock
   let assetList;
   let list = [];
@@ -614,6 +735,14 @@ router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
       createdat: {
         [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
         [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (searchkey) {
+    jfilter = {
+      ...jfilter,
+      side: {
+        [Op.like]: `%${searchkey}%`,
       },
     };
   }
