@@ -984,14 +984,51 @@ router.get('/my/position', auth, async (req, res) => {
   //   resperr(res, 'PLEASE-LOGIN');
   //   return;
   // }
-
   let result = {};
   let today_betamount;
   let today_lose_amount;
   let today_win_amount;
-
   // await db['']
   let promises = [];
+  // let userLevel = ['Bronze', 'Silver', 'Gold', 'Diamond'];
+  await db['users']
+    .findOne({
+      where: { id },
+      raw: true,
+    })
+    .then(async (resp) => {
+      result['firstName'] = resp.firstname;
+      result['lastName'] = resp.lastname;
+      result['level'] = resp.level;
+      if (resp.isadmin === 0) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: `FEE_TO_REFERER_${I_LEVEL[resp.level]}` },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      } else if (resp.isadmin === 1 || resp.isadmin === 3) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: 'FEE_TO_BRANCH' },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      } else if (resp.isadmin === 2) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: 'FEE_TO_ADMIN' },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      }
+    });
 
   // let userLevel = ['Bronze', 'Silver', 'Gold', 'Diamond'];
   await db['users']
@@ -1044,7 +1081,7 @@ router.get('/my/position', auth, async (req, res) => {
       result['total'] = (total / 10 ** 6).toFixed(2);
       result['safeBalance'] = (avail / 10 ** 6).toFixed(2);
     });
-    
+
   await db['betlogs']
     .findAll({
       where: {
@@ -1093,7 +1130,6 @@ router.get('/my/position', auth, async (req, res) => {
       let total_betamount = 0;
       let total_lose_amount = 0;
       let total_win_amount = 0;
-
       let min_trade_amount = 0;
       let max_trade_amount = 0;
       let max_trade_profit = 0;
@@ -1135,7 +1171,6 @@ router.get('/my/position', auth, async (req, res) => {
           max_profit = ((amount * diffRate) / 100).toFixed(2);
         }
 
-
         total_betamount += amount;
 
         if (status === 0) {
@@ -1154,7 +1189,6 @@ router.get('/my/position', auth, async (req, res) => {
         (total_win_amount / total_betamount) *
         100
       ).toFixed(2);
-
       result['max_trade_amount'] = max_trade_amount;
       result['min_trade_amount'] = min_trade_amount;
       result['max_profit'] = max_profit;
@@ -1164,7 +1198,6 @@ router.get('/my/position', auth, async (req, res) => {
     });
 
   await Promise.all(promises);
-
   respok(res, null, null, { result });
 });
 
