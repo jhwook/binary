@@ -960,6 +960,7 @@ router.post('/verify/:type/:code', auth, async (req, res) => {
                   countryNum: resp.countryNum,
                 });
               });
+
             respok(res, 'VALID_CODE', null, { result: jwttoken });
           }
         }
@@ -973,7 +974,10 @@ router.get('/my/position', auth, async (req, res) => {
   let date1 = moment().endOf('days').unix();
   let start = moment().startOf('days');
   let end = moment().endOf('days');
-  // let id = 114;
+
+  let id = 114;
+
+
   // let { id } = req.decoded;
   // if (Number.isFinite(+id)) {
   // } else {
@@ -1025,6 +1029,47 @@ router.get('/my/position', auth, async (req, res) => {
           });
       }
     });
+
+  // let userLevel = ['Bronze', 'Silver', 'Gold', 'Diamond'];
+  await db['users']
+    .findOne({
+      where: { id },
+      raw: true,
+    })
+    .then(async (resp) => {
+      result['firstName'] = resp.firstname;
+      result['lastName'] = resp.lastname;
+      result['level'] = resp.level;
+      if (resp.isadmin === 0) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: `FEE_TO_REFERER_${I_LEVEL[resp.level]}` },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      } else if (resp.isadmin === 1 || resp.isadmin === 3) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: 'FEE_TO_BRANCH' },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      } else if (resp.isadmin === 2) {
+        await db['feesettings']
+          .findOne({
+            where: { key_: 'FEE_TO_ADMIN' },
+            raw: true,
+          })
+          .then((resp) => {
+            result['cashback'] = resp.value_ / 100;
+          });
+      }
+    });
+
 
   await db['balances']
     .findOne({
