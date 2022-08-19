@@ -60,6 +60,10 @@ module.exports = function(sequelize, DataTypes) {
     totalAmount: {
       type: DataTypes.BIGINT,
       allowNull: true
+    },
+    side: {
+      type: DataTypes.STRING(20),
+      allowNull: true
     }
   }, {
     sequelize,

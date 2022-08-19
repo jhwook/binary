@@ -39,10 +39,6 @@ module.exports = function (sequelize, DataTypes) {
           key: 'id',
         },
       },
-      assetName: {
-        type: DataTypes.STRING(40),
-        allowNull: true,
-      },
       amount: {
         type: DataTypes.BIGINT,
         allowNull: true,
@@ -92,6 +88,19 @@ module.exports = function (sequelize, DataTypes) {
           },
           key: 'uuid',
         },
+      },
+      assetName: {
+        type: DataTypes.STRING(40),
+        allowNull: true,
+      },
+      isnotisent: {
+        type: DataTypes.INTEGER(4),
+        allowNull: true,
+        defaultValue: 0,
+      },
+      winamount: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
       },
     },
     {

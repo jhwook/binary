@@ -53,7 +53,7 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
       },
       imgurl: {
-        type: DataTypes.STRING(80),
+        type: DataTypes.STRING(200),
         allowNull: true,
       },
       dispSymbol: {

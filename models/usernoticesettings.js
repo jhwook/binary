@@ -2,7 +2,7 @@
 
 module.exports = function (sequelize, DataTypes) {
   return sequelize.define(
-    'balances',
+    'usernoticesettings',
     {
       id: {
         autoIncrement: true,
@@ -20,43 +20,33 @@ module.exports = function (sequelize, DataTypes) {
           key: 'id',
         },
       },
-      total: {
-        type: DataTypes.BIGINT,
+      betend: {
+        type: DataTypes.INTEGER(4),
+        allowNull: true,
+        defaultValue: 1,
+      },
+      orderrequest: {
+        type: DataTypes.INTEGER(4),
+        allowNull: true,
+        defaultValue: 1,
+      },
+      emailnotice: {
+        type: DataTypes.INTEGER(4),
         allowNull: true,
         defaultValue: 0,
       },
-      locked: {
-        type: DataTypes.BIGINT,
-        allowNull: true,
-        defaultValue: 0,
-      },
-      avail: {
-        type: DataTypes.BIGINT,
-        allowNull: true,
-        defaultValue: 0,
-      },
-      typestr: {
-        type: DataTypes.STRING(20),
-        allowNull: true,
-      },
-      isMember: {
+      latestnews: {
         type: DataTypes.INTEGER(4),
         allowNull: true,
       },
-      uuid: {
-        type: DataTypes.STRING(100),
+      questions: {
+        type: DataTypes.INTEGER(4),
         allowNull: true,
-        references: {
-          model: {
-            tableName: 'demoUsers',
-          },
-          key: 'uuid',
-        },
       },
     },
     {
       sequelize,
-      tableName: 'balances',
+      tableName: 'usernoticesettings',
     }
   );
 };
