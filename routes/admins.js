@@ -212,138 +212,173 @@ router.post('/notification', (req, res) => {
   let jwttoken;
 });
 
-router.post('/add/branch', async (req, res) => {
-  let transacion = await db.Sequelize.transaction();
-  let { browser, os, platform } = req.useragent;
-  let { countryNum, phone, password, email, token, refcode } = req.body;
-  let jwttoken;
+router.post('/add/branch/:type', async (req, res) => {
+  let { type } = req.params;
+  let {
+    typestr,
+    name,
+    code,
+    bankName,
+    bankAccount,
+    phone,
+    email,
+    walletAdress,
+  } = req.body;
 
-  if (!email || !password) {
-    resperr(res, 'INVALID-DATA');
-    return;
+  let jdata = {};
+
+  if (type === 'EXCLUSIVE') {
+    jdata = {
+      ...jdata,
+      name: name,
+      code: code,
+      bankName: bankName,
+      bankAccount: bankAccount,
+      phone: phone,
+    };
+  } else if (type === 'GENERAL') {
+    jdata = {
+      ...jdata,
+      name: name,
+      code: code,
+      walletAdress: walletAdress,
+      phone: phone,
+    };
   }
-  try {
-    await db.sequelize.transaction(async (t) => {
-      let respond = await db['users'].findOne({
-        where: { email: email },
-        transaction: t,
-      });
-      if (respond) {
-        resperr(res, 'EMAIL-EXIST');
-        return;
-      }
-      let new_acc = await db['users'].create(
-        {
-          email: email,
-          password,
-        },
-        {
-          transaction: t,
-        }
-      );
-      let refcodegen = await generateRefCode('' + new_acc.id);
-      await db['users'].update(
-        {
-          referercode: String(refcodegen),
-        },
-        {
-          where: { id: new_acc.id },
-          transaction: t,
-        }
-      );
-      await db['balances'].bulkCreate(
-        [
-          {
-            uid: new_acc.id,
-            typestr: 'DEMO',
-          },
-          {
-            uid: new_acc.id,
-            typestr: 'LIVE',
-          },
-        ],
-        {
-          transaction: t,
-        }
-      );
-    });
-  } catch (err) {
-    respok(res, 'FAILED');
-  }
-  //TOKEN GENERATE
-  jwttoken = createJWT({ email: email, password });
-  let jtoken = await jwttoken;
-  if (jtoken) {
-    if (refcode) {
-      let referer = await db['users'].findOne({
-        where: { referercode: refcode },
-        raw: true,
-      });
-      if (referer) {
-        if (referer.isadmin == 1) {
-          await db['referrals']
-            .create({
-              referer_uid: referer.id,
-              referral_uid: jtoken.id,
-            })
-            .then(async (_) => {
-              await db['users'].update(
-                {
-                  isbranch: 1,
-                },
-                {
-                  where: {
-                    id: jtoken.id,
-                  },
-                }
-              );
-            });
-        } else {
-          await db['referrals'].create({
-            referer_uid: referer.id,
-            referral_uid: jtoken.id,
-          });
-        }
-      } else {
-        resperr(res, 'INVALID-CODE');
-        return;
-      }
-    }
-    await db['userwallets']
-      .findOne({
-        where: {
-          uid: jtoken.id,
-        },
-      })
-      .then(async (res) => {
-        if (!res) {
-          let walletgen = await web3.eth.accounts.create(
-            jtoken.id + 'BINARY@##12'
-          );
-          await db['userwallets'].create({
-            uid: jtoken.id,
-            walletaddress: walletgen.address,
-            privatekey: walletgen.privateKey,
-          });
-        }
-      });
-    let ipaddr = requestIp.getClientIp(req).replace('::ffff:', '');
-    let ipinfo = lookup(ipaddr);
-    await db['loginhistories'].create({
-      uid: jtoken.id,
-      ipaddress: ipaddr,
-      deviceos: platform + ' / ' + os,
-      browser: browser,
-      country: ipinfo.country,
-      status: ipinfo.city,
-    });
-    _jtoken = await createJWT({ id: jtoken.id });
-    respok(res, 'TOKEN_CREATED', null, { result: _jtoken });
-    return;
-  } else {
-    resperr(res, 'USER-NOT-FOUND');
-    return;
-  }
+
+  await db['branchusers'].create(jdata).then((resp) => {
+    respok(res, 'SUCCESS');
+  });
+  // let transacion = await db.Sequelize.transaction();
+  // let { browser, os, platform } = req.useragent;
+  // let { countryNum, phone, password, email, token, refcode } = req.body;
+  // let jwttoken;
+  // if (!email || !password) {
+  //   resperr(res, 'INVALID-DATA');
+  //   return;
+  // }
+  // try {
+  //   await db.sequelize.transaction(async (t) => {
+  //     let respond = await db['users'].findOne({
+  //       where: { email: email },
+  //       transaction: t,
+  //     });
+  //     if (respond) {
+  //       resperr(res, 'EMAIL-EXIST');
+  //       return;
+  //     }
+  //     let new_acc = await db['users'].create(
+  //       {
+  //         email: email,
+  //         password,
+  //       },
+  //       {
+  //         transaction: t,
+  //       }
+  //     );
+  //     let refcodegen = await generateRefCode('' + new_acc.id);
+  //     await db['users'].update(
+  //       {
+  //         referercode: String(refcodegen),
+  //       },
+  //       {
+  //         where: { id: new_acc.id },
+  //         transaction: t,
+  //       }
+  //     );
+  //     await db['balances'].bulkCreate(
+  //       [
+  //         {
+  //           uid: new_acc.id,
+  //           typestr: 'DEMO',
+  //         },
+  //         {
+  //           uid: new_acc.id,
+  //           typestr: 'LIVE',
+  //         },
+  //       ],
+  //       {
+  //         transaction: t,
+  //       }
+  //     );
+  //   });
+  // } catch (err) {
+  //   respok(res, 'FAILED');
+  // }
+  // //TOKEN GENERATE
+  // jwttoken = createJWT({ email: email, password });
+  // let jtoken = await jwttoken;
+  // if (jtoken) {
+  //   if (refcode) {
+  //     let referer = await db['users'].findOne({
+  //       where: { referercode: refcode },
+  //       raw: true,
+  //     });
+  //     if (referer) {
+  //       if (referer.isadmin == 1) {
+  //         await db['referrals']
+  //           .create({
+  //             referer_uid: referer.id,
+  //             referral_uid: jtoken.id,
+  //           })
+  //           .then(async (_) => {
+  //             await db['users'].update(
+  //               {
+  //                 isbranch: 1,
+  //               },
+  //               {
+  //                 where: {
+  //                   id: jtoken.id,
+  //                 },
+  //               }
+  //             );
+  //           });
+  //       } else {
+  //         await db['referrals'].create({
+  //           referer_uid: referer.id,
+  //           referral_uid: jtoken.id,
+  //         });
+  //       }
+  //     } else {
+  //       resperr(res, 'INVALID-CODE');
+  //       return;
+  //     }
+  //   }
+  //   await db['userwallets']
+  //     .findOne({
+  //       where: {
+  //         uid: jtoken.id,
+  //       },
+  //     })
+  //     .then(async (res) => {
+  //       if (!res) {
+  //         let walletgen = await web3.eth.accounts.create(
+  //           jtoken.id + 'BINARY@##12'
+  //         );
+  //         await db['userwallets'].create({
+  //           uid: jtoken.id,
+  //           walletaddress: walletgen.address,
+  //           privatekey: walletgen.privateKey,
+  //         });
+  //       }
+  //     });
+  //   let ipaddr = requestIp.getClientIp(req).replace('::ffff:', '');
+  //   let ipinfo = lookup(ipaddr);
+  //   await db['loginhistories'].create({
+  //     uid: jtoken.id,
+  //     ipaddress: ipaddr,
+  //     deviceos: platform + ' / ' + os,
+  //     browser: browser,
+  //     country: ipinfo.country,
+  //     status: ipinfo.city,
+  //   });
+  //   _jtoken = await createJWT({ id: jtoken.id });
+  //   respok(res, 'TOKEN_CREATED', null, { result: _jtoken });
+  //   return;
+  // } else {
+  //   resperr(res, 'USER-NOT-FOUND');
+  //   return;
+  // }
 });
 
 router.patch('/toggle/:tablename/:id/:active', (req, res) => {
@@ -1801,6 +1836,23 @@ router.post('/enroll/notification', upload.single('img'), (req, res) => {
     .then((resp) => {
       respok(res, 'OK');
     });
+});
+
+router.get('/domain/setting/:type', async (req, res) => {
+  let { type } = req.params;
+  if (type === 'qr') {
+    await db['domainsettings']
+      .findOne({
+        where: {
+          active: 1,
+          qrcode: 1,
+        },
+        raw: true,
+      })
+      .then((resp) => {
+        respok(res, null, null, { url: resp.url });
+      });
+  }
 });
 // router.get('/referrals/:iswho/:offset/:limit/:orderkey/:orderval', async (req, res) => {
 
