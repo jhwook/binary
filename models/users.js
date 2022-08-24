@@ -105,6 +105,22 @@ module.exports = function(sequelize, DataTypes) {
     nickname: {
       type: DataTypes.STRING(100),
       allowNull: true
+    },
+    languagestr: {
+      type: DataTypes.STRING(10),
+      allowNull: true
+    },
+    branchid: {
+      type: DataTypes.INTEGER(10).UNSIGNED,
+      allowNull: true
+    },
+    branchuuid: {
+      type: DataTypes.STRING(60),
+      allowNull: true
+    },
+    myparent: {
+      type: DataTypes.INTEGER(10).UNSIGNED,
+      allowNull: true
     }
   }, {
     sequelize,

@@ -5,12 +5,24 @@ const {
   deleteSocketid,
   unbindsocketid,
 } = require('../utils/sockets');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = (io) => {
-  const fs = require('fs');
-  const path = require('path');
   const listenersPath = path.resolve(__dirname);
+  // console.log(io);
   io.use((socket, next) => {
+    // console.log('socket', socket);
+    fs.readdir(listenersPath, (err, files) => {
+      if (err) {
+        process.exit(1);
+      }
+      files.map((fileName) => {
+        if (fileName !== 'index.js') {
+          require(path.resolve(__dirname, fileName))(io, socket);
+        }
+      });
+    });
     if (socket.handshake.query && socket.handshake.query.token) {
       jwt.verify(
         socket.handshake.query.token,
@@ -30,6 +42,7 @@ module.exports = (io) => {
       next();
     }
   }).on('connection', async (socket) => {
+    // console.log('socket', socket.nsp.sockets);
     // console.log(socket.decoded, ' / ', socket.id);
     // const asyncBlock = async () => {
     //   await client.set("string key", "string val");
@@ -60,20 +73,8 @@ module.exports = (io) => {
       );
     } else {
     }
-    console.log(
-      `@@@@@@@@@@@@@@@@@@@@@@@@${socket.id},${userId} socket connected`
-    );
 
-    fs.readdir(listenersPath, (err, files) => {
-      if (err) {
-        process.exit(1);
-      }
-      files.map((fileName) => {
-        if (fileName !== 'index.js') {
-          require(path.resolve(__dirname, fileName))(io, socket);
-        }
-      });
-    });
+    
     socket.on('disconnect', () => {
       //		unbindIpPortSocket( address , socket.id )
       deleteSocketid(socket.id);
