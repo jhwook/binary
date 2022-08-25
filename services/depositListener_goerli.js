@@ -3,8 +3,8 @@ const { web3: web3API } = require('../configs/configweb3');
 const { contractaddr } = require('../configs/addresses');
 const { abi: abierc20 } = require('../contracts/abi/ERC20');
 const db = require('../models');
-const rpcURL =
-  'wss://eth-goerli.g.alchemy.com/v2/GpYKX0hISz5jDmvnPsCaWFrQVxr_gDG7';
+const rpcURL =  'wss://eth-goerli.g.alchemy.com/v2/GpYKX0hISz5jDmvnPsCaWFrQVxr_gDG7';
+const { getethrep } = require( '../utils/eth')
 
 async function getConfirmations(txHash) {
   try {
@@ -25,6 +25,7 @@ async function getConfirmations(txHash) {
   }
 }
 
+const { N_CONFIRMS_FOR_FINALITY_DEF } = require('./configs-tx-listners' )
 async function confirmEtherTransaction(jdata, confirmations = 10) {
   let { uid, rxaddr, senderaddr, amount, txhash } = jdata;
   console.log('@@@@@@@@@@jdata', jdata);
@@ -102,7 +103,9 @@ const watchTokenTransfers = async () => {
         where: { walletaddress: _to },
         raw: true,
       })
-      .then((resp) => {
+      .then(async (resp) => {
+				if ( resp ) {}
+				else { return }
         let { uid } = resp;
         jdata = { uid, rxaddr: _to, senderaddr: _from, amount: _value, txhash };
         db['transactions'].create({
@@ -115,7 +118,42 @@ const watchTokenTransfers = async () => {
           txhash: txhash,
           rxaddr: _to,
           senderaddr: _from,
+					nettype
         });
+let userinfo = await findone ( 'users' , { id : uid } )
+let amount = + getethrep ( _value)
+rmqenqueuemessage ( { 
+		type:'CRYPTO-DEPOSIT' ,
+		nettype , // 
+		... jdata ,
+		amount , // : getethrep ( _value ) ,
+		username : userinfo.username
+})
+if ( true ){
+	let respfee = await findone ( 'feesettings', { key_: 'FEE_CURRENCY_DEPOSIT_IN_BP' } )
+	if ( respfee ) {
+		let feerate = +respfee.value_
+		if ( feerate > 0 ) {
+			let feeamount = amount * feerate / 10000
+			amount -= feerate 
+			db[ 'logfees' ].create ( 
+			{ // betId: id, //  payer_uid: uid, //  recipient_uid: winner_referer_uid,
+			  feeamount , // : fee_to_referer,
+			  typestr: 'FEE_CURRENCY_DEPOSIT' ,
+				txhash ,
+				nettype	 //  betamount: v.amount, //  bet_expiry: expiry, //  assetId,
+			} 		)
+		}
+		else {}
+	}
+	else {}
+}
+
+true && await db['balances'].increment(['total', 'avail'], {
+  by: amount,
+  where: { uid, typestr: 'LIVE' },
+});
+return
         confirmEtherTransaction(jdata);
       });
   });

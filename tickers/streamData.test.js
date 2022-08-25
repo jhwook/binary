@@ -8,14 +8,27 @@ const twelvedataSocket = new WebSocket(
 socket.addEventListener('open', function (event) {
   // socket.send(JSON.stringify({ type: 'subscribe', symbol: '6699.HK' }));
   // socket.send(JSON.stringify({ type: 'subscribe', symbol: '370.HK' }));
-  socket.send(JSON.stringify({ type: 'subscribe', symbol: '700.HK' }));
-  // socket.send(JSON.stringify({ type: 'subscribe', symbol: 'BINANCE:BTCUSDT' }));
+  // socket.send(JSON.stringify({ type: 'subscribe', symbol: '700.HK' }));
+  socket.send(JSON.stringify({ type: 'subscribe', symbol: 'BINANCE:BTCUSDT' }));
   // socket.send(JSON.stringify({ type: 'subscribe', symbol: 'IC MARKETS:1' }));
 });
 
 // Listen for messages
 socket.addEventListener('message', function (event) {
-  console.log('Message from server ', JSON.parse(event.data));
+  let resp = JSON.parse(event.data).data;
+  if (resp) {
+    resp.forEach((v) => {
+      let { s, p } = v;
+      s = s.split(':')[1];
+      p = p.toFixed(5);
+      console.log(s, p);
+      // cliredisa.hset('STREAM_ASSET_PRICE', s, p);
+      // db['tickerprice'].create({
+      //   symbol: s,
+      //   price: p,
+      // });
+    });
+  }
 });
 
 // twelvedataSocket.addEventListener('open', function (event) {

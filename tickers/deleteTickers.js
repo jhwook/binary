@@ -2,16 +2,9 @@ const cron = require('node-cron');
 const db = require('../models');
 let { Op } = db.Sequelize;
 
-// cron.schedule('0 * * * * *', async () => {
-//   await db['assets']
-//     .findAll({
-//       where: { active: 1 },
-//       raw: true,
-//     })
-//     .then((resp) => {
-//       console.log(resp);
-//     });
-// });
+cron.schedule('0 * * * * *', async () => {
+  deleteTickers();
+});
 deleteTickers = async () => {
   await db['assets']
     .findAll({
@@ -31,7 +24,7 @@ deleteTickers = async () => {
           })
           .then((resp) => {
             // console.log(resp[resp.length - 1])
-            console.log(resp.length);
+            // console.log(resp.length);
             if (resp.length === 5000) {
               let { id, symbol } = resp[resp.length - 1];
               db['tickerprice'].destroy({
@@ -44,5 +37,3 @@ deleteTickers = async () => {
       await Promise.all(promises);
     });
 };
-
-deleteTickers();

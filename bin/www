@@ -46,6 +46,8 @@ const io = require('socket.io')(server, {
   allowEIO3: true,
 });
 
+
+
 // app.set('io', io);
 
 // io.use((socket, next) => {
@@ -95,6 +97,68 @@ const https_io = require('socket.io')(server_https, {
   },
   allowEIO3: true,
 });
+
+app.set('socketIo', https_io);
+/////////////////////////////////////////////////  베팅 종료알림 /////////////////////////////////////////////////
+const cron = require('node-cron');
+const cliredisa = require('async-redis').createClient();
+const moment = require('moment');
+const db = require('../models');
+
+const betClosedSocketMessage = async () => {
+  let timenow = moment().startOf('minute');
+  let now_unix = moment().startOf('minute').unix();
+  let socketList = await cliredisa.hgetall('USERNAME2SOCKID');
+  if (socketList) {
+    socketList = Object.entries(socketList);
+    console.log('socketList', socketList);
+  } else {
+    return;
+  } 
+
+  for (let i = 0; i < socketList.length; i++) {
+    let [userId, userSocketId] = socketList[i];
+
+    let betlogs = await db['betlogs'].findAll({
+     where: { expiry: now_unix, uid: userId},
+     raw: true,
+    });
+
+    if(betlogs.length === 0) {
+      continue;
+    }
+
+    betlogs.map(async (betlog) => {
+        let { status, diffRate, amount, assetName, uid, uuid } = betlog;         // let usersocketid = await cliredisa.hget('USERN AME2SOCKID', uid);        // 						if ( j_ socketdata_issent[ uuid ] ) { ret urn }        //						else {}
+        let profit = 0;
+        if (status === 1) {
+          if (diffRate === 0) {
+            profit = amount / 10 ** 6;
+          } else {
+            profit = (((amount / 10 ** 6) * diffRate) / 100).toFixed(2);
+          }
+        }
+        if (status === 0) {
+          profit = (-1 * amount) / 10 ** 6;
+        }
+        let socketData = {
+          name: assetName,
+          profit: profit,
+          data: betlog,
+        };
+
+        https_io.to(userSocketId).emit('bet_closed', socketData)
+      });
+  }
+}
+
+cron.schedule('1 * * * * *', () => {
+  let now_unix = moment().startOf('minute').unix();
+  console.log('@@@@ betClosedSocketMessage @@@@', now_unix);
+  betClosedSocketMessage()
+}); 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////  
 
 // https_io
 //   .use((socket, next) => {

@@ -9,7 +9,7 @@ const { withdraw } = require('../services/withdrawal');
 const { closeTx } = require('../services/closeTx');
 const { watchTransfers } = require('../services/trackTx');
 let { Op } = db.Sequelize;
-
+const moment = require('moment');
 var router = express.Router();
 
 router.get('/', function (req, res, next) {
@@ -53,6 +53,7 @@ router.post('/listen/:type', auth, async (req, res) => {
 });
 
 router.patch('/live/:type/:amount', auth, async (req, res) => {
+  console.log('@@@@@@@@@@@@@@@@@@patch live');
   let { type, amount } = req.params;
   let {
     rxaddr,
@@ -67,14 +68,13 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
   let { id, isadmin, isbranch } = req.decoded;
   console.log('HELLO');
   console.log('BODY', req.body);
-
   // amount *= 1000000;
   // if (type.toUpperCase() === 'WITHDRAW') {
   //   amount *= 1000000;
   // } else if (type.toUpperCase() === 'DEPOSIT') {
   //   amount *= 1000000;
   // }
-
+  amount = amount * 10 ** 6;
   if (!id) {
     resperr(res, 'NOT-LOGGED-IN');
     return;
@@ -90,12 +90,37 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
     case 'WITHDRAW':
       console.log(amount);
       console.log(balance);
+
       if (+amount > +balance.avail) {
         console.log('NOT-ENOUGH-BALANCE');
         resperr(res, 'NOT-ENOUGH-BALANCE');
         return;
         break;
       }
+      /************/
+      let feeamount;
+      if (false) {
+        let respfee = await db['feesettings'].findOne({
+          raw: true,
+          where: { key_: 'FEE_CURRENCY_WITHDRAW_IN_BP' },
+        });
+        if (respfee) {
+          let { value_ } = respfee;
+          let feerate = +value_;
+          if (feerate > 0) {
+            feeamount = (amount * feerate) / 10000;
+            if (amount + feeamount > +balance.avail) {
+            } else {
+              resperr(res, 'NOT-ENOUGH-BALANCE');
+              return;
+              break;
+            }
+          } else {
+          }
+        } else {
+        }
+      }
+      /************/
       console.log('WITHDRAW ON GOING');
       let { value: ADMINADDR } = await db['settings'].findOne({
         where: { name: 'ADMINADDR' },
@@ -110,6 +135,7 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
         rxaddr,
         adminaddr: ADMINADDR,
         adminpk: ADMINPK,
+        feeamount,
       });
       respok(res, null, null, { payload: { resp } });
 
@@ -164,7 +190,7 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
             typestr: 'DEPOSIT',
             status: 0,
             target_uid: referer.referer_uid,
-            localeAmount: amount * 10 ** 6,
+            localeAmount: amount,
             localeUnit: tokentype,
             name: name,
             cardNum: card,
@@ -247,9 +273,33 @@ router.post('/deposit/:type/:amount', auth, async (req, res) => {
 });
 
 router.get('/branch/list/:off/:lim', auth, async (req, res) => {
-  let { off, lim, startDate, endDate } = req.params;
+  let { off, lim } = req.params;
+  let { startDate, endDate } = req.query;
   let { id } = req.decoded;
+  let jfilter = {};
+  if (startDate) {
+    jfilter = {
+      ...jfilter,
+      createdat: { [Op.gte]: moment(startDate).format('YYYY-MM-DD HH:mm:ss') },
+    };
+  }
+  if (endDate) {
+    jfilter = {
+      ...jfilter,
+      createdat: { [Op.lte]: moment(endDate).format('YYYY-MM-DD HH:mm:ss') },
+    };
+  }
+  if (startDate && endDate) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(startDate).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(endDate).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
   console.log(id);
+  console.log('jfilter', jfilter);
   // offset = +offset;
   // limit = +limit;
   // db['transactions']
@@ -287,16 +337,19 @@ router.get('/branch/list/:off/:lim', auth, async (req, res) => {
   //     // group: ['id'],
   //   })
   db['transactions']
-    .findAll({
+    .findAndCountAll({
       where: {
+        ...jfilter,
         type: 2,
         typestr: 'DEPOSIT',
       },
+      offset: +off,
+      limit: +lim,
       order: [['id', 'DESC']],
       raw: true,
     })
     .then(async (respdata) => {
-      let promises = respdata.map(async (el) => {
+      let promises = respdata.rows.map(async (el) => {
         let { uid, id, amount, localeAmount } = el;
         // localeAmount = localeAmount / 10 ** 6;
         // el['localeAmount'] = localeAmount;

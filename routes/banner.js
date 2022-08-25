@@ -8,7 +8,7 @@ const ejs = require('ejs');
 const moment = require('moment');
 const { upload } = require('../utils/multer');
 const WEB_URL = 'https://options1.net/resource';
-
+let { Op } = db.Sequelize;
 // 이미지 업로드
 router.post(
   '/enroll',

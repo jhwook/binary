@@ -21,6 +21,47 @@ router.post('/enroll', auth, (req, res) => {
     });
 });
 
+router.get('/my', auth, async (req, res) => {
+  let { id } = req.decoded;
+  await db['inquiry']
+    .findAll({
+      where: { writer_uid: id },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
+router.get('/:inquiryId', auth, async (req, res) => {
+  let { id } = req.decoded;
+  let { inquiryId } = req.params;
+  await db['inquiry']
+    .findOne({
+      where: { writer_uid: id, id: inquiryId },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
+router.get('/admin/:inquiryId', async (req, res) => {
+  let { inquiryId } = req.params;
+  await db['inquiry']
+    .findOne({
+      where: { id: inquiryId },
+      raw: true,
+    })
+    .then(async (resp) => {
+      resp['user'] = await db['users'].findOne({
+        where: { id: resp.writer_uid },
+        raw: true,
+      });
+      respok(res, null, null, { resp });
+    });
+});
+
 router.get('/:offset/:limit/:orderkey/:orderval', (req, res) => {
   let { offset, limit, orderkey, orderval } = req.params;
   let { date0, date1 } = req.query;
@@ -78,18 +119,20 @@ router.get('/:offset/:limit/:orderkey/:orderval', (req, res) => {
     });
 });
 
-router.post('/answer/:id', async (req, res) => {
+router.post('/answer/:inquiryId', auth, async (req, res) => {
+  let { id } = req.decoded;
   let { answer } = req.body;
-  let { id } = req.params;
+  let { inquiryId } = req.params;
 
   db['inquiry']
     .update(
       {
         answer,
+        replier_uid: id,
         status: 1,
       },
       {
-        where: { id },
+        where: { id: inquiryId },
       }
     )
     .then((resp) => {

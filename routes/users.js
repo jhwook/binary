@@ -19,6 +19,8 @@ const { sendMessage } = require('../services/twilio');
 const { sendEmailMessage } = require('../services/nodemailer');
 const { v4: uuidv4 } = require('uuid');
 const e = require('express');
+const KEYS = Object.keys;
+const ISFINITE = Number.isFinite;
 
 async function generateRefCode(uid, i = 0) {
   let code = String(crypto.createHash('md5').update(uid).digest('hex')).slice(
@@ -244,18 +246,13 @@ router.get('/refchk', auth, async (req, res) => {
     return;
   }
 });
-
-/*
- * REGISTER ENDPOINT
- */
-
+/* * REGISTER ENDPOINT */
 router.post('/signup/:type', async (req, res) => {
   let transaction = await db.sequelize.transaction();
   let { type } = req.params;
   let { browser, os, platform } = req.useragent;
   let { countryNum, phone, password, email, token, refcode } = req.body;
   let jwttoken;
-
   /////////////////////////////////////////////// PRE CHECK ///////////////////////////////////////////////
   if (refcode) {
     let referer = await db['users'].findOne({
@@ -309,12 +306,8 @@ router.post('/signup/:type', async (req, res) => {
         .then(async (new_acc) => {
           let refcodegen = await generateRefCode('' + new_acc.id);
           await db['users'].update(
-            {
-              referercode: String(refcodegen),
-            },
-            {
-              where: { id: new_acc.id },
-            }
+            { referercode: String(refcodegen) },
+            { where: { id: new_acc.id } }
           );
           //respok and lead to login
           db['balances']
@@ -334,6 +327,8 @@ router.post('/signup/:type', async (req, res) => {
             });
           db['usernoticesettings'].create({
             uid: new_acc.id,
+            betend: 1,
+            orderrequest: 1,
           });
         });
     }
@@ -355,21 +350,15 @@ router.post('/signup/:type', async (req, res) => {
           return;
         }
         let new_acc = await db['users'].create(
-          {
-            email: email,
-            password,
-          },
-          {
-            transaction: t,
-          }
+          { email: email, password },
+          { transaction: t }
         );
         let refcodegen = await generateRefCode('' + new_acc.id);
         await db['users'].update(
           {
             referercode: String(refcodegen),
           },
-          {
-            where: { id: new_acc.id },
+          {            where: { id: new_acc.id },
             transaction: t,
           }
         );
@@ -390,6 +379,8 @@ router.post('/signup/:type', async (req, res) => {
         );
         db['usernoticesettings'].create({
           uid: new_acc.id,
+          betend: 1,
+          orderrequest: 1,
         });
       });
     } catch (err) {
@@ -439,6 +430,8 @@ router.post('/signup/:type', async (req, res) => {
         ]);
         db['usernoticesettings'].create({
           uid: new_acc.id,
+          betend: 1,
+          orderrequest: 1,
         });
       });
     //TOKEN GENERATE
@@ -497,7 +490,7 @@ router.post('/signup/:type', async (req, res) => {
           await db['referrals'].create({
             referer_uid: referer.id,
             referral_uid: jtoken.id,
-            isRefererBranch: 0,
+            isRefererBranch: 2,
           });
         }
       } else {
@@ -540,8 +533,50 @@ router.post('/signup/:type', async (req, res) => {
     resperr(res, 'USER-NOT-FOUND');
     return;
   }
-});
-
+  // if (jtoken) {
+    // if (refcode) {
+    //   let referer = await db['branchusers'].findOne({
+    //     raw: true,
+    //     where: { referercode: refcode },
+    //   });
+    //   if (referer) {
+    //   } else {
+    //     resperr(res, 'INVALID-CODE');
+    //     return;
+    //   }
+    //   switch (referer.typestr) {
+    //     case 'branch-chinese':
+    //       await db['referrals'].create({
+    //         referer_uid: referer.id,
+    //         referral_uid: jtoken.id,
+    //         isRefererBranch: 1,
+    //       });
+    //       await db['users'].update(
+    //         { isbranch: 1 },
+    //         { where: { id: jtoken.id } }
+    //       );
+    //       break;
+    //     case 'branch-common':
+    //       await db['referrals'].create({
+    //         referer_uid: referer.id,
+    //         referral_uid: jtoken.id,
+    //         isRefererBranch: 1,
+    //       });
+    //       await db['users'].update(
+    //         { isbranch: 2 },
+    //         { where: { id: jtoken.id } }
+    //       );
+    //       break;
+    //     case 'hq':
+    //       await db['referrals'].create({
+    //         referer_uid: referer.id,
+    //         referral_uid: jtoken.id,
+    //         isRefererBranch: 0,
+    //       });
+    //       break;
+    //   }
+  // }
+}); // end signup ep
 /**
  * LOGIN ENDPOINT
  */
@@ -700,6 +735,7 @@ router.post('/login/:type', async (req, res) => {
       status: ipinfo.city,
     });
 
+    res.cookie('token',jtoken)
     respok(res, 'TOKEN_CREATED', null, { result: jtoken, ref, isFirstSocial });
     return;
   } else {
@@ -724,11 +760,15 @@ router.get('/notice/setting', auth, async (req, res) => {
     });
 });
 
-router.patch('/notice/set/:field/:val', auth, async (req, res) => {
+router.patch('/notice/set', auth, async (req, res) => {
   let { id } = req.decoded;
-  let { field, val } = req.query;
+  let { betend, orderrequest, emailnotice, latestnews, questions } = req.body;
   let jfilter = {};
-  jfilter[field] = val;
+  jfilter['betend'] = betend;
+  jfilter['orderrequest'] = orderrequest;
+  jfilter['emailnotice'] = emailnotice;
+  jfilter['latestnews'] = latestnews;
+  jfilter['questions'] = questions;
   await db['usernoticesettings']
     .update({ ...jfilter }, { where: { uid: id } })
     .then((resp) => respok(res, 'CHANGED'));
@@ -765,7 +805,7 @@ router.patch('/change/password/:type', async (req, res) => {
       });
   }
 });
-
+const { validateEmail } = require('../utils/validates');
 router.post('/reset/password/:type', async (req, res) => {
   let { type } = req.params;
   let { email, countryNum, phone } = req.body;
@@ -773,6 +813,17 @@ router.post('/reset/password/:type', async (req, res) => {
   const timenow = moment().unix();
   let expiry = moment().add(10, 'minute').unix();
   if (type === 'email') {
+    if (email) {
+    } else {
+      resperr(res, 'ARG-MISSING');
+      return;
+    }
+    if (validateEmail(email)) {
+    } else {
+      resperr(res, 'ARG-INVALID');
+      return;
+    }
+
     let user = await db['users']
       .findOne({ where: { email: email }, raw: true })
       .then((resp) => {
@@ -807,7 +858,7 @@ router.post('/reset/password/:type', async (req, res) => {
     await sendMessage(countryNum + phone, randNum);
     await db['verifycode']
       .create({
-        uid: id,
+        uid: user?.id ? user.id : null,
         code: randNum,
         type: 'phone',
         countryNum: countryNum,
@@ -960,7 +1011,6 @@ router.post('/verify/:type/:code', auth, async (req, res) => {
                   countryNum: resp.countryNum,
                 });
               });
-
             respok(res, 'VALID_CODE', null, { result: jwttoken });
           }
         }
@@ -974,10 +1024,7 @@ router.get('/my/position', auth, async (req, res) => {
   let date1 = moment().endOf('days').unix();
   let start = moment().startOf('days');
   let end = moment().endOf('days');
-
-  let id = 114;
-
-
+  // let id = 114;
   // let { id } = req.decoded;
   // if (Number.isFinite(+id)) {
   // } else {
@@ -1029,47 +1076,6 @@ router.get('/my/position', auth, async (req, res) => {
           });
       }
     });
-
-  // let userLevel = ['Bronze', 'Silver', 'Gold', 'Diamond'];
-  await db['users']
-    .findOne({
-      where: { id },
-      raw: true,
-    })
-    .then(async (resp) => {
-      result['firstName'] = resp.firstname;
-      result['lastName'] = resp.lastname;
-      result['level'] = resp.level;
-      if (resp.isadmin === 0) {
-        await db['feesettings']
-          .findOne({
-            where: { key_: `FEE_TO_REFERER_${I_LEVEL[resp.level]}` },
-            raw: true,
-          })
-          .then((resp) => {
-            result['cashback'] = resp.value_ / 100;
-          });
-      } else if (resp.isadmin === 1 || resp.isadmin === 3) {
-        await db['feesettings']
-          .findOne({
-            where: { key_: 'FEE_TO_BRANCH' },
-            raw: true,
-          })
-          .then((resp) => {
-            result['cashback'] = resp.value_ / 100;
-          });
-      } else if (resp.isadmin === 2) {
-        await db['feesettings']
-          .findOne({
-            where: { key_: 'FEE_TO_ADMIN' },
-            raw: true,
-          })
-          .then((resp) => {
-            result['cashback'] = resp.value_ / 100;
-          });
-      }
-    });
-
 
   await db['balances']
     .findOne({
@@ -1194,7 +1200,11 @@ router.get('/my/position', auth, async (req, res) => {
       result['max_profit'] = max_profit;
       result['net_turnover'] = (total_win_amount - total_feeamount).toFixed(2);
       result['hedged_trades'] = total_lose_amount;
-      result['average_profit'] = (total_win_amount / win_count).toFixed(2);
+      if (win_count === 0) {
+        result['average_profit'] = 0;
+      } else {
+        result['average_profit'] = (total_win_amount / win_count).toFixed(2);
+      }
     });
 
   await Promise.all(promises);
@@ -1280,9 +1290,14 @@ router.get('/query/:tblname/:offset/:limit', auth, (req, res) => {
       respdata.rows.map((el) => {
         let { amount, localeAmount } = el;
         amount = amount / 10 ** 6;
-        localeAmount = localeAmount / 10 ** 6;
+
+        if (amount && localeAmount) {
+          localeAmount = localeAmount / 10 ** 6;
+
+          el['localeAmount'] = localeAmount;
+        } else {
+        }
         el['amount'] = amount;
-        el['localeAmount'] = localeAmount;
       });
       respok(res, null, null, { respdata });
     });
@@ -1291,7 +1306,7 @@ router.get('/query/:tblname/:offset/:limit', auth, (req, res) => {
 router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
   let { id } = req.decoded;
   let { type, offset, limit } = req.params;
-  let { startDate, endDate } = req.query;
+  let { startDate, endDate, searchkey } = req.query;
   let jfilter = {};
   console.log('startDate', moment(startDate).format('YYYY-MM-DD HH:mm:ss'));
   if (startDate && endDate) {
@@ -1301,8 +1316,34 @@ router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
         [Op.between]: [startDate, endDate],
       },
     };
+  } // id = 114;
+  if (searchkey && getobjtype(searchkey) == 'String' && searchkey.length) {
+    //		let jfilter_local={}
+    //	jfilter_local ['name'] = searchkey
+    // jfilter_local ['baseAsset' ] = searchkey
+    let listassets;
+    listassets = await db['assets'].findAll({
+      raw: true,
+      where: {
+        [Op.or]: [
+          { name: { [Op.like]: `%${searchkey}%` } },
+          { baseAsset: { [Op.like]: `%${searchkey}%` } },
+        ],
+      },
+    });
+    listassets = listassets.map((elem) => elem.id);
+    listassets = listassets.map((assetId) => {
+      return { assetId };
+    });
+    if (ISFINITE(+searchkey)) {
+      listassets.push({ id: +searchkey });
+    }
+    LOGGER('@listassets', listassets);
+    //		let jfilter_local_02 = {}
+    //	jfilter_local_02[ [Op.or] ]= listassets
+    //		jfilter = { ... jfilter , [Op.or] : listassets ... jfilter_local_02 }
+    jfilter = { ...jfilter, [Op.or]: listassets };
   }
-  // id = 114;
   offset = +offset;
   limit = +limit;
   let bet_log = await db['betlogs']
@@ -1345,8 +1386,6 @@ router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
       respok(res, null, null, { bet_log: resp });
     });
 });
-const KEYS = Object.keys;
-const ISFINITE = Number.isFinite;
 router.put('/my/info', auth, async (req, res) => {
   let { firstname, lastname, password, language, nickname } = req.body; // , profileimage
   if (KEYS(req.body).length) {
@@ -1401,6 +1440,7 @@ router.patch('/profile', auth, async (req, res) => {
 });
 
 router.get('/predeposit', auth, async (req, res) => {
+  console.log('@@@@@@@@@@@@@@@@@@predeposit');
   let { id } = req.decoded;
   db['transactions']
     .findOne({
@@ -1410,6 +1450,8 @@ router.get('/predeposit', auth, async (req, res) => {
       },
     })
     .then(async (result) => {
+      // console.log('result@@@@@@@@@@@',result);
+      result = false
       if (result) {
         await result.update({ checked: 1 });
         respok(res, null, null, { respdata: result });
@@ -1825,7 +1867,7 @@ router.get(
 
 router.get('/my/fee/setting', auth, async (req, res) => {
   let { id } = req.decoded;
-
+  // let id = 119;
   let user = await db['users'].findOne({
     where: { id },
     raw: true,
@@ -1836,10 +1878,54 @@ router.get('/my/fee/setting', auth, async (req, res) => {
       where: { referral_uid: id },
       raw: true,
     })
-    .then((resp) => {
-      resp.map((el) => {
+    .then(async (resp) => {
+      let result = {};
+      let promises = resp.map(async (el) => {
         let { referer_uid, isRefererBranch } = el;
+
+        await db['feesettings']
+          .findOne({
+            where: { key_: 'FEE_TO_ADMIN' },
+            raw: true,
+          })
+          .then((data) => {
+            let { value_ } = data;
+            result['fee_to_admin'] = value_ / 100;
+          });
+
+        if (isRefererBranch === 1) {
+          await db['feesettings']
+            .findOne({
+              where: { key_: 'FEE_TO_BRANCH' },
+              raw: true,
+            })
+            .then((data) => {
+              let { value_ } = data;
+              result['fee_to_branch'] = value_ / 100;
+            });
+        } else {
+          await db['users']
+            .findOne({
+              where: { id: referer_uid },
+              raw: true,
+            })
+            .then(async (resp) => {
+              let { level } = resp;
+              await db['feesettings']
+                .findOne({
+                  where: { key_: `FEE_TO_REFERER_${I_LEVEL[level]}` },
+                  raw: true,
+                })
+                .then((data) => {
+                  let { value_ } = data;
+                  result['fee_to_referer'] = value_ / 100;
+                });
+            });
+        }
       });
+
+      await Promise.all(promises);
+      respok(res, null, null, { result });
     });
 });
 

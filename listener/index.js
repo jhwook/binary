@@ -7,6 +7,9 @@ const {
 } = require('../utils/sockets');
 const fs = require('fs');
 const path = require('path');
+const cron = require('node-cron');
+const cliredisa = require('async-redis').createClient();
+let moment = require('moment');
 
 module.exports = (io) => {
   const listenersPath = path.resolve(__dirname);
@@ -68,9 +71,9 @@ module.exports = (io) => {
 
     if (userId) {
       bindUsernameSocketid(userId, socket.id);
-      console.log(
-        `@@@@@@@@@@@@@@@@@@@@@@@@${socket.id},${userId} socket connected`
-      );
+      // console.log(
+      //   `@@@@@@@@@@@@@@@@@@@@@@@@${socket.id},${userId} socket connected`
+      // );
     } else {
     }
 
@@ -80,7 +83,7 @@ module.exports = (io) => {
       deleteSocketid(socket.id);
       unbindsocket(userId);
       // unbindsocketid(socket.id);
-      console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
+      // console.log(`@@@@@@@@@@@@@@@@@@${socket.id} socket DISconnected`);
     });
   });
 
@@ -98,3 +101,5 @@ module.exports = (io) => {
     });
   });
 };
+
+

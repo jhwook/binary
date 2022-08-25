@@ -1,18 +1,39 @@
 var express = require('express');
 const requestIp = require('request-ip');
 let { respok, resperr } = require('../utils/rest');
-const { getobjtype } = require('../utils/common');
+const { getobjtype , convaj } = require('../utils/common');
 const jwt = require('jsonwebtoken');
 const { auth } = require('../utils/authMiddleware');
 const db = require('../models');
 const { lookup } = require('geoip-lite');
 var crypto = require('crypto');
 const LOGGER = console.log;
+const { tableexists , fieldexists } = require('../utils/db')
 let { Op } = db.Sequelize;
 const { calculate_dividendrate } = require('../schedule/calculateDividendRate');
 const axios = require('axios');
 
 var router = express.Router();
+
+router.get("/rows/jsonobject/:tablename/:keyname/:valuename", (req, res) => {
+  let { tablename, keyname, valuename } = req.params;
+  if (tablename == "users") {
+    resperr(res, "ERR-RESTRICTED");
+    return;
+  }
+  tableexists(tablename).then((resp) => {
+    if (resp) {
+    } else {
+      resperr(res, `DATA-NOT-FOUND`);
+      return;
+    }
+//    findall(tablename, {}).then((list) => {
+   	db[ tablename ].findAll ({raw: true } ) .then( list => { //  
+      let jdata = convaj(list, keyname, valuename); // =(arr,keyname,valuename)=>{
+      respok(res, null, null, { respdata: jdata });
+    });
+  });
+});
 
 router.get('/v1/rows/:tblname', (req, res) => {
   let { tblname } = req.params;
@@ -69,7 +90,7 @@ router.get('/dividendrate', async (req, res) => {
   let dividendrate_all = await calculate_dividendrate();
   respok(res, null, null, { dividendrate_all });
 });
-const fieldexists = async (_) => true;
+// const fieldexists = async (_) => true;
 const ISFINITE = Number.isFinite;
 const MAP_ORDER_BY_VALUES = {
   ASC: 1,
@@ -87,8 +108,7 @@ const countrows_scalar = (table, jfilter) => {
   });
 };
 
-router.get(
-  '/rows/:tablename/:fieldname/:fieldval/:offset/:limit/:orderkey/:orderval',
+router.get( '/rows/:tablename/:fieldname/:fieldval/:offset/:limit/:orderkey/:orderval',
   async (req, res) => {
     let { tablename, fieldname, fieldval, offset, limit, orderkey, orderval } =
       req.params;

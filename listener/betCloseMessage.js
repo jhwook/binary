@@ -139,11 +139,30 @@ module.exports = async (io, socket) => {
         console.log(count);
   };
   // false &&
-cron.schedule('1 * * * * *', () => {
+
+const socketTEST = async () => {
+  let timenow = moment().startOf('minute');
+    let now_unix = moment().startOf('minute').unix();
+    let socketList = await cliredisa.hgetall(KVS_KEYNAME);
+    if (socketList) {
+      socketList = Object.entries(socketList);
+    } else {
+      return;
+    }    
+    for (let i = 0; i < socketList.length; i++) {
+
+      let [userId, userSocketId] = socketList[i];
+      socket.to(userSocketId).emit('test2', `your userId is ${userId} and socketId is ${userSocketId}`);
+    }
+}
+
+
+cron.schedule('10/* * * * * *', () => {
  
     let now_unix = moment().startOf('minute').unix();
-    console.log('@betCloseMessage', now_unix);
-    findCloseBets();
+    socketTEST()
+    // console.log('@betCloseMessage', now_unix);
+    // findCloseBets();
     // findCloseBets_test();
   }); 
 };

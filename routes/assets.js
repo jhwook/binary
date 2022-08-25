@@ -11,7 +11,7 @@ const axios = require('axios');
 const cliredisa = require('async-redis').createClient();
 const fs = require('fs');
 const { upload_symbol } = require('../utils/multer');
-
+const moment = require('moment');
 const WEB_URL = 'https://options1.net/resource';
 
 // router.get('/', function (req, res, next) {
@@ -20,7 +20,7 @@ const WEB_URL = 'https://options1.net/resource';
 
 router.get('/list', softauth, async (req, res) => {
   let id;
-  let { group, searchkey } = req.query;
+  let { group, searchkey, date0, date1 } = req.query;
   let jfilter = {};
   if (group) {
     jfilter['groupstr'] = group;
@@ -28,6 +28,19 @@ router.get('/list', softauth, async (req, res) => {
   if (searchkey) {
     jfilter = { name: { [Op.like]: `%${searchkey}%` } };
   }
+  if (date0) {
+    startDate = moment(date0).format('YYYY-MM-DD HH:mm:ss');
+    jfilter = { ...jfilter, createdat: { [Op.gte]: startDate } };
+  }
+  if (date1) {
+    endDate = moment(date1).format('YYYY-MM-DD HH:mm:ss');
+    jfilter = { ...jfilter, createdat: { [Op.lte]: endDate } };
+  }
+
+  // if (group === 'stock') {
+  //   jfilter = { ...jfilter, active: 1 };
+  // }
+
   console.log('jfilter', jfilter);
   console.log(req.decoded);
   if (req.decoded) {
@@ -38,7 +51,6 @@ router.get('/list', softauth, async (req, res) => {
           where: {
             ...jfilter,
           },
-
           raw: true,
         })
 
@@ -123,17 +135,40 @@ router.post('/aaa', upload_symbol.single('img'), (req, res) => {
   console.log(name);
   respok(res, null, null, req.files);
 });
-
-router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
+const MAP_GROUPS_ALLOWED = { crypto: 1, forex: 1, stock: 1 };
+router.post('/add/:type', upload_symbol.single('img'), async (req, res) => {
   // type => crypto / forex / stock
+  LOGGER('', req.body);
   const imgfile = req.file;
+  console.log('img file@@@@@@@@@@@@@@', req.file);
   let imgurl = `${WEB_URL}/symbols/${imgfile.filename}`;
-  let { name, baseAsset, targetAsset, tickerSrc, stockSymbol } = req.body;
+  let { name, baseAsset, targetAsset, stockSymbol } = req.body;
+  if (baseAsset) {
+    baseAsset = baseAsset.toUpperCase();
+  }
+  if (targetAsset) {
+    targetAsset = targetAsset.toUpperCase();
+  }
   let { type } = req.params;
   let symbol, dispSymbol, APISymbol, socketAPISymbol;
   symbol = `${baseAsset}_${targetAsset}`;
   dispSymbol = `${baseAsset}${targetAsset}`;
   APISymbol = `${baseAsset}/${targetAsset}`;
+  let groupstr = type;
+  if (MAP_GROUPS_ALLOWED[groupstr]) {
+  } else {
+    resperr(res, 'NOT-SUPPORTED-GROUP');
+    return;
+  }
+  // let resp = await db['assets'].findOne({
+  //   raw: true,
+  //   where: { symbol, groupstr },
+  // });
+  // if (resp) {
+  //   resperr(res, 'DATA-DUPLICATE');
+  //   return;
+  // } else {
+  // }
   if (type === 'crypto') {
     APISymbol = APISymbol.slice(0, -1);
     db['assets']
@@ -147,6 +182,8 @@ router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
         dispSymbol,
         APISymbol,
         socketAPISymbol: dispSymbol,
+        imgurl: imgurl,
+        active: 0,
       })
       .then((resp) => {
         respok(res, null, null, { resp });
@@ -163,6 +200,8 @@ router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
         dispSymbol,
         APISymbol,
         socketAPISymbol: APISymbol,
+        imgurl: imgurl,
+        active: 0,
       })
       .then((resp) => {
         respok(res, null, null, { resp });
@@ -180,6 +219,8 @@ router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
         dispSymbol: stockSymbol,
         APISymbol: stockSymbol,
         socketAPISymbol: stockSymbol,
+        imgurl: imgurl,
+        active: 0,
       })
       .then((resp) => {
         respok(res, null, null, { resp });
@@ -188,22 +229,32 @@ router.post('/add/:type', upload_symbol.single('img'), (req, res) => {
   }
 });
 
-router.patch('/setting/:assetId/:active', async (req, res) => {
+router.patch('/setting/:assetId/:active', adminauth, async (req, res) => {
+  if(req.isadmin !== 2) {
+    return res.status(401).json({
+      code: 401,
+      message: 'No Admin Privileges',
+    });
+  } else {}
+  
   let { assetId, active } = req.params;
   let { imgurl } = req.query;
-  let jfilter = {};
+  let jupdates = {};
   if (imgurl) {
-    jfilter['imgurl'] = imgurl;
+    jupdates['imgurl'] = imgurl;
   }
   if (active) {
-    jfilter['active'] = active;
+    jupdates['active'] = active;
   }
-  db['assets']
-    .update({
-      ...jfilter,
-    })
+  db['assets'] //    .update({      ...jupdates,		    })
+    .update(jupdates, { where: { id: assetId } })
     .then((resp) => {
       respok(res, 'successfully modified');
+    })
+    .catch((err) => {
+      LOGGER(err);
+      resperr(res, 'INTERNAL-ERR');
+      return;
     });
 });
 
@@ -241,8 +292,8 @@ router.get('/api', async (req, res) => {
     });
 });
 
-router.get('/ticker/price/:symbol', async (req, res) => {
-  let { symbol } = req.params;
+router.get('/ticker/price', async (req, res) => {
+  let { symbol } = req.query;
   await db['tickerprice']
     .findAll({
       where: { symbol },

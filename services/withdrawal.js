@@ -6,14 +6,16 @@ const { abi: abierc20 } = require('../contracts/abi/ERC20');
 const GAS_LIMIT_TOKEN = '';
 const withdraw = async (jdata) => {
   return new Promise(async (resolve, reject) => {
-    let { userid, tokentype, amount, rxaddr, adminaddr, adminpk } = jdata;
+    let { userid, tokentype, amount, rxaddr, adminaddr, adminpk
+				,feeamount
+		 } = jdata;
     //let {value: ADMINADDR} = await db['settings'].findOne({where:{name: 'ADMINADDR'}})
     //let {value: ADMINPK} = await db['settings'].findOne({where:{name: 'ADMINPK'}})
     console.log('jdata', jdata);
     console.log(adminaddr);
     console.log(tokentype);
     console.log(contractaddr[tokentype]);
-    let amt2sendwei = (amount * 10 ** 6).toString();
+    let amt2sendwei = (amount ).toString();
     // let amt2sendwei = amount.toString();
     const contract = new web3.eth.Contract(abierc20, contractaddr[tokentype]);
     await contract.methods.balanceOf(adminaddr).call(async (err, balance) => {
@@ -68,9 +70,17 @@ const withdraw = async (jdata) => {
             } else {
               console.log(hash);
               await db['balances'].increment(['total', 'avail'], {
-                by: -1 * amount * 10 ** 6,
+                by: -1 * amount,
                 where: { uid: userid, typestr: 'LIVE' },
               });
+/*********************/
+					if ( +feeamount){
+		        await db['balances'].increment(['total', 'avail'], {
+							by: -1 * feeamount ,
+              where: { uid: userid, typestr: 'LIVE' },
+             })					
+					}	
+/*********************/
               await db['transactions'].update(
                 {
                   status: 1,

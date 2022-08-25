@@ -4,8 +4,9 @@ const { contractaddr } = require('../configs/addresses');
 const { abi: abierc20 } = require('../contracts/abi/ERC20');
 const db = require('../models');
 // const rpcURL = 'wss://data-seed-prebsc-1-s1.binance.org:8545';
-const rpcURL =
-  'wss://polygon-mumbai.g.alchemy.com/v2/zhUm6jYUggnzx1n9k8XdJHcB0KhH5T7d';
+const nettype = 'BSC_TESTNET'
+const rpcURL =  'wss://polygon-mumbai.g.alchemy.com/v2/zhUm6jYUggnzx1n9k8XdJHcB0KhH5T7d';
+const { getethrep } = require('../utils/eth' )
 
 async function getConfirmations(txHash) {
   try {
@@ -25,7 +26,7 @@ async function getConfirmations(txHash) {
     console.log(error);
   }
 }
-
+const { N_CONFIRMS_FOR_FINALITY_DEF } = require('./configs-tx-listners' )
 async function confirmEtherTransaction(jdata, confirmations = 10) {
   let { uid, rxaddr, senderaddr, amount, txhash } = jdata;
   console.log('@@@@@@@@@@jdata', jdata);
@@ -80,14 +81,11 @@ const watchTokenTransfers = async () => {
       if (error) console.log(error);
     }
   );
-
   let userWalletList = [];
-
   const options = {
     filter: {},
     fromBlock: 'latest',
   };
-
   tokenContract.events.Transfer(options, async (err, ev) => {
     if (err) {
       console.log(err);
@@ -95,7 +93,6 @@ const watchTokenTransfers = async () => {
     }
     let txhash = ev.transactionHash;
     let { _value, _from, _to } = ev.returnValues;
-
     console.log(`Detected Deposit from ${_from} to ${_to} amount of ${_value}`);
 
     db['userwallets']
@@ -103,8 +100,10 @@ const watchTokenTransfers = async () => {
         where: { walletaddress: _to },
         raw: true,
       })
-      .then((resp) => {
-        let { uid } = resp;
+      .then(async (resp) => {
+				if ( resp ) {}
+				else { return }    
+		    let { uid } = resp;
         jdata = { uid, rxaddr: _to, senderaddr: _from, amount: _value, txhash };
         db['transactions'].create({
           uid: uid,
@@ -117,6 +116,42 @@ const watchTokenTransfers = async () => {
           rxaddr: _to,
           senderaddr: _from,
         });
+let userinfo = await findone ( 'users' , { id : uid } )
+let amount = + getethrep ( _value)
+rmqenqueuemessage ( { 
+		type:'CRYPTO-DEPOSIT' ,
+		nettype , // 
+		... jdata ,
+		amount , // : getethrep ( _value ) ,
+		username : userinfo.username
+})
+if ( true ){
+	let respfee = await findone ( 'feesettings', { key_: 'FEE_CURRENCY_DEPOSIT_IN_BP' } )
+	if ( respfee ) {
+		let feerate = +respfee.value_
+		if ( feerate > 0 ) {
+			let feeamount = amount * feerate / 10000
+			amount -= feerate 
+			db[ 'logfees' ].create ( 
+			{ // betId: id, //  payer_uid: uid, //  recipient_uid: winner_referer_uid,
+			  feeamount , // : fee_to_referer,
+			  typestr: 'FEE_CURRENCY_DEPOSIT' ,
+				txhash ,
+				nettype	 //  betamount: v.amount, //  bet_expiry: expiry, //  assetId,
+			} 		)
+		}
+		else {}
+	}
+	else {}
+}
+
+true && await db['balances'].increment(['total', 'avail'], {
+  by: amount,
+  where: { uid, typestr: 'LIVE' },
+});
+
+return
+
         confirmEtherTransaction(jdata);
       });
   });

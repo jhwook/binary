@@ -11,6 +11,8 @@ const getTickerPrice_sec = async () => {
     .then(async (resp) => {
       let promises = resp.map(async (el) => {
         let { socketAPISymbol } = el;
+				if ( socketAPISymbol ) {}
+				else { return null  }
         let price = await cliredisa.hget('STREAM_ASSET_PRICE', socketAPISymbol);
         db['tickerprice'].create({
           symbol: socketAPISymbol,

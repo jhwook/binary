@@ -3,6 +3,7 @@ const cron = require('node-cron');
 const db = require('../models');
 const cliredisa = require('async-redis').createClient();
 const { ASSETID_REDIS_SYMBOL } = require('../utils/ticker_symbol');
+const axios = require('axios');
 // const ASSETID_REDIS_SYMBOL = [
 //   '__SKIPPER__',
 //   'btcusdt',
@@ -33,22 +34,41 @@ const betbot = async () => {
           'STREAM_ASSET_PRICE_PER_MIN',
           APISymbol
         );
-        for (let i = 0; i < 4; i++) {
-          let uid_list = [93, 94, 95, 114];
-          let amount = Math.floor((Math.random() + 1) * 10 ** 2) * 10 ** 6;
-          let side = 'HIGH';
-          if (i % 2 === 0) side = 'LOW';
-          db['bets'].create({
-            uid: uid_list[i],
-            assetId: id,
-            amount,
-            starting: starting_unix,
-            expiry: expiry_unix,
-            side,
-            type: 'LIVE',
-            startingPrice: currentPrice,
-          });
-        }
+        // for (let i = 0; i < 4; i++) {
+        //   let uid_list = [93, 94, 95, 114];
+        //   let amount = (
+        //     Math.floor((Math.random() + 1) * 10 ** 2) *
+        //     10 ** 6
+        //   ).toFixed(0);
+        //   let side = 'HIGH';
+        //   if (i % 2 === 0) side = 'LOW';
+        //   console.log('@@@@@@@@@@@amount =============', amount);
+        //   await axios.post(
+        //     `http://users.options1.net:30708/bets/bot/join/LIVE/1/${amount}/10/${side}/${uid_list[i]}`
+        //   );
+        //   // db['bets'].create({
+        //   //   uid: uid_list[i],
+        //   //   assetId: id,
+        //   //   amount,
+        //   //   starting: starting_unix,
+        //   //   expiry: expiry_unix,
+        //   //   side,
+        //   //   type: 'LIVE',
+        //   //   startingPrice: currentPrice,
+        //   // });
+        // }
+        await axios.post(
+          `http://users.options1.net:30708/bets/bot/join/LIVE/1/100000000/8/HIGH/93`
+        );
+        await axios.post(
+          `http://users.options1.net:30708/bets/bot/join/LIVE/1/100000000/8/HIGH/94`
+        );
+        await axios.post(
+          `http://users.options1.net:30708/bets/bot/join/LIVE/1/100000000/8/HIGH/95`
+        );
+        await axios.post(
+          `http://users.options1.net:30708/bets/bot/join/LIVE/1/100000000/8/LOW/114`
+        );
       });
     });
   // for (let j = 1; j <= 8; j++) {
@@ -78,7 +98,7 @@ const betbot = async () => {
 cron.schedule('15 * * * * *', async () => {
   let timenow_unix = moment().add(1, 'minutes').set('second', 0).unix();
   console.log('@betting_bot', timenow_unix);
-  betbot();
+  // betbot();
 });
 
 module.exports = { betbot };

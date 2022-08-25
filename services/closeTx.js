@@ -26,6 +26,7 @@ const ASSETID_SYMBOL = [
 ];
 //closeTx({txhash, type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
 const closeTx = async (jargs) => {
+  console.log('@@@@@@@@@@@@@@@@@@closeTx');
   let { txhash, type, tokentype, userid, senderaddr, amount } = jargs;
   console.log('jargs', jargs);
   awaitTransaction
@@ -50,7 +51,7 @@ const closeTx = async (jargs) => {
               .then((_) => {
                 db['balances']
                   .increment(['total', 'avail'], {
-                    by: amount * 10 ** 6,
+                    by: amount,
                     where: { uid: userid, typestr: 'LIVE' },
                   })
                   .then((_) => {

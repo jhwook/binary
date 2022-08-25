@@ -14,16 +14,46 @@ const { web3 } = require('../configs/configweb3');
 const WEB_URL = 'https://options1.net/resource';
 const { I_LEVEL } = require('../configs/userlevel');
 const axios = require('axios');
-const { convaj } = require('../utils/common');
+const { convaj, generaterefcode } = require('../utils/common');
 
 var router = express.Router();
 const ISFINITE = Number.isFinite;
+
+
+const getUserList = async (isadmin) => {
+  let isbranch
+  let list = [];
+  if (isadmin === 1) {
+    list = [1]
+  }
+  if (isadmin === 2) {
+    list = [0, 1, 2]
+  }
+  if (isadmin === 3) {
+    list = [2]
+  }
+
+  let userList = [];
+
+  await db['users'].findAll({
+    where: {isbranch: {[Op.in]: list}},
+    raw: true,
+    attributes: ['id']
+  }).then((resp) => {
+    resp.map((el) => {
+      userList.push(el.id)
+    })
+  });
+ 
+  return userList
+}
 /***************/
-const query_count_visits_24h = async (_) => {
+const query_count_visits_24h = async (userList) => {
   let start_date = moment().startOf('days');
   let end_date = moment().endOf('days');
-  return await db['loginhistories'].count({
+  let result =  await db['loginhistories'].count({
     where: {
+      uid: {[Op.in]: userList},
       createdat: {
         [Op.gte]: start_date.format('YYYY-MM-DD HH:mm:ss'),
         [Op.lte]: end_date.format('YYYY-MM-DD HH:mm:ss'),
@@ -31,49 +61,108 @@ const query_count_visits_24h = async (_) => {
     },
     raw: true,
   });
+
+  return result 
 };
-const query_payout_amount_24h = async (_) => {
+const query_payout_amount_24h = async (userList) => {
   let date1 = moment().format('YYYY-MM-DD HH:mm:ss');
   let date0 = moment().subtract(24, 'hours').format('YYYY-MM-DD HH:mm:ss');
-  let resp = await db.sequelize.query(
-    `select sum(winamount) as sumwinamount from betlogs where  createdat>='${date0}' and createdat<='${date1}'`
-  );
-  if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].sumwinamount)) {
-    return resp[0][0].sumwinamount;
-  } else {
-    return null;
-  }
+  // let resp = await db.sequelize.query(
+  //   `select sum(winamount) as sumwinamount from betlogs where  createdat>='${date0}' and createdat<='${date1}'`
+  // );
+  let resp ;
+  await db['betlogs'].findAll({
+    where: {
+      uid: {[Op.in]: userList},
+      createdat: {
+        [Op.gte]: date0,
+        [Op.lte]: date1,
+      },
+      status: 1
+    },
+    raw: true,
+    attributes: [
+      [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+    ]
+  }).then((respdata) => {
+    let [{sum}] = respdata;
+    resp = sum
+  })
+  return resp;
+  // if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].sumwinamount)) {
+  //   return resp[0][0].sumwinamount;
+  // } else {
+  //   return null;
+  // }
 };
-const query_betsumamount_24h = async (_) => {
+const query_betsumamount_24h = async (userList) => {
   let date1 = moment().format('YYYY-MM-DD HH:mm:ss');
   let date0 = moment().subtract(24, 'hours').format('YYYY-MM-DD HH:mm:ss');
-  let resp = await db.sequelize.query(
-    `select sum(amount) as sumamount from betlogs where createdat>='${date0}' and createdat<='${date1}'`
-  );
-  if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].sumamount)) {
-    return resp[0][0].sumamount;
-  } else {
-    return null;
-  }
+  // let resp = await db.sequelize.query(
+  //   `select sum(amount) as sumamount from betlogs where createdat>='${date0}' and createdat<='${date1}'`
+  // );
+  let resp ;
+
+  await db['betlogs'].findAll({
+    where: {
+      uid: {[Op.in]: userList},
+      createdat: {
+        [Op.gte]: date0,
+        [Op.lte]: date1,
+      },
+    },
+    raw: true,
+    attributes: [
+      [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
+    ]
+  }).then((respdata) => {
+    let [{sum}] = respdata;
+    resp = sum
+  })
+  // if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].sumamount)) {
+  //   return resp[0][0].sumamount;
+  // } else {
+  //   return null;
+  // }
+  return resp
 };
-const query_betcount_24h = async (_) => {
+const query_betcount_24h = async (userList) => {
   let date1 = moment().format('YYYY-MM-DD HH:mm:ss');
   let date0 = moment().subtract(24, 'hours').format('YYYY-MM-DD HH:mm:ss');
-  let resp = await db.sequelize.query(
-    `select count(id) as countbets from betlogs where createdat>='${date0}' and createdat<='${date1}'`
-  );
-  if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].countbets)) {
-    return resp[0][0].countbets;
-  } else {
-    return null;
-  }
+ 
+  // let resp = await db.sequelize.query(
+  //   `select count(id) as countbets from betlogs where createdat>='${date0}' and createdat<='${date1}'`
+  // );
+  let resp ;
+  
+  await db['betlogs'].findAndCountAll({
+    where: {
+      uid: {[Op.in]: userList},
+      createdat: {
+        [Op.gte]: date0,
+        [Op.lte]: date1,
+      },
+    },
+    raw: true,
+  }).then((respdata) => {
+    let {count} = respdata;
+    resp = count
+  })
+  return resp
+  // if (resp && resp[0] && resp[0][0] && ISFINITE(+resp[0][0].countbets)) {
+  //   return resp[0][0].countbets;
+  // } else {
+  //   return null;
+  // }
 };
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', adminauth, async (req, res) => {
+  let userList = await getUserList(req.isadmin)
+
   let aproms = [];
-  aproms[aproms.length] = query_count_visits_24h();
-  aproms[aproms.length] = query_betsumamount_24h();
-  aproms[aproms.length] = query_betcount_24h();
-  aproms[aproms.length] = query_payout_amount_24h();
+  aproms[aproms.length] = query_count_visits_24h(userList);
+  aproms[aproms.length] = query_betsumamount_24h(userList);
+  aproms[aproms.length] = query_betcount_24h(userList);
+  aproms[aproms.length] = query_payout_amount_24h(userList);
   Promise.all(aproms).then((list) => {
     respok(res, null, null, {
       respdata: {
@@ -86,74 +175,9 @@ router.get('/dashboard', (req, res) => {
   });
 });
 
+
 /***************/
-async function createJWT(jfilter) {
-  let userwallet;
-  let userinfo = await db['users'].findOne({
-    where: {
-      ...jfilter,
-    },
-    attributes: [
-      'id',
-      'firstname',
-      'lastname',
-      'email',
-      'phone',
-      'level',
-      'referercode',
-      'isadmin',
-      'isbranch',
-      'profileimage',
-      'countryNum',
-    ],
-    raw: true,
-  });
 
-  await db['userwallets']
-    .findOne({
-      attributes: ['walletaddress'],
-      where: {
-        uid: userinfo.id,
-      },
-      raw: true,
-    })
-    .then(async (result) => {
-      if (!result) {
-        let walletgen = await web3.eth.accounts.create(
-          userinfo.id + 'BINARY@##12'
-        );
-        await db['userwallets'].create({
-          uid: userinfo.id,
-          walletaddress: walletgen.address,
-          privatekey: walletgen.privateKey,
-        });
-        userwallet = walletgen.address;
-      } else {
-        userwallet = result.walletaddress;
-      }
-    });
-
-  if (!userinfo) {
-    return false;
-  }
-  let token = jwt.sign(
-    {
-      type: 'JWT',
-      ...userinfo,
-      wallet: userwallet,
-    },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: '3h',
-      // expiresIn: '24h',
-      issuer: 'EXPRESS',
-    }
-  );
-  return {
-    tokenId: token,
-    ...userinfo,
-  };
-}
 const flip_forex_base_quote_currencies = (str) => {
   let arr = str.split('/');
   return arr.reverse().join('/');
@@ -212,7 +236,35 @@ router.post('/notification', (req, res) => {
   let jwttoken;
 });
 
-router.post('/add/branch/:type', async (req, res) => {
+router.patch('/profile', async (req, res) => {
+  let { name, email, password, walletAddress, walletPK, phone, countryNum } =
+    req.body;
+
+  await db['users'].update(
+    { name, email, password, phone, countryNum },
+    { where: { isadmin: 2 } }
+  );
+  await db['settings'].update(
+    { value: walletAddress },
+    { where: { name: 'ADMINADDR' } }
+  );
+  await db['settings'].update(
+    { value: walletPK },
+    { where: { name: 'ADMINPK' } }
+  );
+
+  respok(res, 'OK');
+});
+
+router.post('/add/branch/:type', adminauth, async (req, res) => {
+
+  if(req.isadmin !== 1) {
+    return res.status(401).json({
+      code: 401,
+      message: 'No Admin Privileges',
+    });
+  } else {}
+
   let { type } = req.params;
   let {
     typestr,
@@ -222,163 +274,57 @@ router.post('/add/branch/:type', async (req, res) => {
     bankAccount,
     phone,
     email,
-    walletAdress,
+    walletAddress,
   } = req.body;
-
   let jdata = {};
+  let branchuser = await db['users'].findOne({
+    where: { referercode: code },
+    raw: true,
+  });
 
-  if (type === 'EXCLUSIVE') {
-    jdata = {
-      ...jdata,
-      name: name,
-      code: code,
-      bankName: bankName,
-      bankAccount: bankAccount,
-      phone: phone,
-    };
-  } else if (type === 'GENERAL') {
-    jdata = {
-      ...jdata,
-      name: name,
-      code: code,
-      walletAdress: walletAdress,
-      phone: phone,
-    };
+  if (!branchuser) {
+    resperr(res, 'NOT_EXIST_USER');
+  } else {
+    jdata = { uid: branchuser.id };
+
+    if (type === 'EXCLUSIVE' || type == 'CHINESE') {
+      jdata = {
+        ...jdata,
+        name: name,
+        code: code,
+        bankName: bankName,
+        bankAccount: bankAccount,
+        phone: phone,
+      };
+    } else if (type === 'GENERAL' || type == 'COMMON') {
+      jdata = {
+        ...jdata,
+        name: name,
+        code: code,
+        walletAddress: walletAddress,
+        phone: phone,
+      };
+    }
+    await db['branchusers'].create(jdata).then((resp) => {
+      respok(res, 'SUCCESS');
+    });
   }
 
-  await db['branchusers'].create(jdata).then((resp) => {
-    respok(res, 'SUCCESS');
-  });
-  // let transacion = await db.Sequelize.transaction();
-  // let { browser, os, platform } = req.useragent;
-  // let { countryNum, phone, password, email, token, refcode } = req.body;
-  // let jwttoken;
-  // if (!email || !password) {
-  //   resperr(res, 'INVALID-DATA');
-  //   return;
-  // }
-  // try {
-  //   await db.sequelize.transaction(async (t) => {
-  //     let respond = await db['users'].findOne({
-  //       where: { email: email },
-  //       transaction: t,
-  //     });
-  //     if (respond) {
-  //       resperr(res, 'EMAIL-EXIST');
-  //       return;
-  //     }
-  //     let new_acc = await db['users'].create(
-  //       {
-  //         email: email,
-  //         password,
-  //       },
-  //       {
-  //         transaction: t,
-  //       }
-  //     );
-  //     let refcodegen = await generateRefCode('' + new_acc.id);
-  //     await db['users'].update(
-  //       {
-  //         referercode: String(refcodegen),
-  //       },
-  //       {
-  //         where: { id: new_acc.id },
-  //         transaction: t,
-  //       }
-  //     );
-  //     await db['balances'].bulkCreate(
-  //       [
-  //         {
-  //           uid: new_acc.id,
-  //           typestr: 'DEMO',
-  //         },
-  //         {
-  //           uid: new_acc.id,
-  //           typestr: 'LIVE',
-  //         },
-  //       ],
-  //       {
-  //         transaction: t,
-  //       }
-  //     );
-  //   });
-  // } catch (err) {
-  //   respok(res, 'FAILED');
-  // }
-  // //TOKEN GENERATE
-  // jwttoken = createJWT({ email: email, password });
-  // let jtoken = await jwttoken;
-  // if (jtoken) {
-  //   if (refcode) {
-  //     let referer = await db['users'].findOne({
-  //       where: { referercode: refcode },
-  //       raw: true,
-  //     });
-  //     if (referer) {
-  //       if (referer.isadmin == 1) {
-  //         await db['referrals']
-  //           .create({
-  //             referer_uid: referer.id,
-  //             referral_uid: jtoken.id,
-  //           })
-  //           .then(async (_) => {
-  //             await db['users'].update(
-  //               {
-  //                 isbranch: 1,
-  //               },
-  //               {
-  //                 where: {
-  //                   id: jtoken.id,
-  //                 },
-  //               }
-  //             );
-  //           });
-  //       } else {
-  //         await db['referrals'].create({
-  //           referer_uid: referer.id,
-  //           referral_uid: jtoken.id,
-  //         });
-  //       }
-  //     } else {
-  //       resperr(res, 'INVALID-CODE');
-  //       return;
-  //     }
-  //   }
-  //   await db['userwallets']
-  //     .findOne({
-  //       where: {
-  //         uid: jtoken.id,
-  //       },
-  //     })
-  //     .then(async (res) => {
-  //       if (!res) {
-  //         let walletgen = await web3.eth.accounts.create(
-  //           jtoken.id + 'BINARY@##12'
-  //         );
-  //         await db['userwallets'].create({
-  //           uid: jtoken.id,
-  //           walletaddress: walletgen.address,
-  //           privatekey: walletgen.privateKey,
-  //         });
-  //       }
-  //     });
-  //   let ipaddr = requestIp.getClientIp(req).replace('::ffff:', '');
-  //   let ipinfo = lookup(ipaddr);
-  //   await db['loginhistories'].create({
-  //     uid: jtoken.id,
-  //     ipaddress: ipaddr,
-  //     deviceos: platform + ' / ' + os,
-  //     browser: browser,
-  //     country: ipinfo.country,
-  //     status: ipinfo.city,
-  //   });
-  //   _jtoken = await createJWT({ id: jtoken.id });
-  //   respok(res, 'TOKEN_CREATED', null, { result: _jtoken });
-  //   return;
-  // } else {
-  //   resperr(res, 'USER-NOT-FOUND');
-  //   return;
-  // }
+  // CREATE TABLE `adminusers` (
+  //   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  //   `createdat` datetime DEFAULT current_timestamp(),
+  //   `updatedat` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  //   `uid` int(10) DEFAULT NULL,
+  //   `name` varchar(50) DEFAULT NULL,
+  //   `code` varchar(50) DEFAULT NULL,
+  //   `bankName` varchar(50) DEFAULT NULL,
+  //   `bankAccount` varchar(80) DEFAULT NULL,
+  //   `walletAddress` varchar(80) DEFAULT NULL,
+  //   `phone` varchar(40) DEFAULT NULL,
+  //   `typestr` varchar(20) DEFAULT NULL,
+  //   `active` tinyint(4) DEFAULT NULL,
+  //   PRIMARY KEY (`id`)
+  // )
 });
 
 router.patch('/toggle/:tablename/:id/:active', (req, res) => {
@@ -394,6 +340,38 @@ router.patch('/toggle/:tablename/:id/:active', (req, res) => {
     })
     .then((resp) => {
       respok(res, 'OK');
+    });
+});
+
+router.get('/rows/:tablename/:offset/:limit', async (req, res) => {
+  let { tablename, offset, limit } = req.params;
+  let jfilter = {};
+  offset = +offset;
+  limit = +limit;
+
+  await db[tablename]
+    .findAndCountAll({
+      where: { ...jfilter },
+      raw: true,
+      offset,
+      limit,
+      order: [['id', 'DESC']],
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
+router.get('/row/:tablename/:id', async (req, res) => {
+  let { tablename, id } = req.params;
+
+  await db[tablename]
+    .findOne({
+      where: { id },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, resp);
     });
 });
 
@@ -517,7 +495,7 @@ router.get('/count/visit', (req, res) => {
     });
 });
 
-router.get('/userinfo/:id', async (req, res) => {
+router.get('/userinfo/:id', adminauth, async (req, res) => {
   let { id } = req.params;
   await db['users']
     .findOne({
@@ -615,12 +593,15 @@ router.get('/userinfo/:id', async (req, res) => {
       respok(res, null, null, { resp: user });
     });
 });
-router.get('/list/users/:offset/:limit', async (req, res) => {
+
+router.get('/list/users/:offset/:limit', adminauth, async (req, res) => {
   let { offset, limit } = req.params;
   let { date0, date1, filterkey, filterval, searchkey } = req.query;
   offset = +offset;
   limit = +limit;
   let jfilter = {};
+  let userList = await getUserList(req.isadmin)
+   jfilter = { id: {[Op.in]: userList} };
   if (filterkey && filterval) {
     jfilter[filterkey] = filterval;
   }
@@ -658,13 +639,13 @@ router.get('/list/users/:offset/:limit', async (req, res) => {
       },
     };
   }
-  console.log('jfilter', jfilter);
+  // console.log('jfilter', jfilter);
   db['users']
     .findAndCountAll({
       where: {
         ...jfilter,
       },
-      order: [['id', 'DESC']],
+      // order: [['id', 'DESC']],
       offset,
       limit,
       raw: true,
@@ -730,7 +711,7 @@ router.get('/asset/list/:type', async (req, res) => {
   let { type } = req.params;
   await db['assets']
     .findAll({
-      where: { groupstr: type },
+      where: { groupstr: type, active: 1 },
       raw: true,
     })
     .then((resp) => {
@@ -738,9 +719,18 @@ router.get('/asset/list/:type', async (req, res) => {
     });
 });
 
-router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
+router.get('/betrounds/list/:asset/:offset/:limit', adminauth, async (req, res) => {
   let { asset, offset, limit } = req.params;
-  let { assetId, date0, date1, searchkey } = req.query;
+  let { assetId, date0, date1, searchkey, filterkey, filterval } = req.query;
+
+  let isadmin = req.isadmin
+  let feetype;
+  if(isadmin === 2) {
+    feetype = 'FEE_TO_ADMIN'
+  }
+  if(isadmin === 1 || isadmin === 3) {
+    feetype = 'FEE_TO_BRANCH'
+  }
   // asset = crypto / forex / stock
   let assetList;
   let list = [];
@@ -748,6 +738,9 @@ router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
   limit = +limit;
   let jfilter = {};
 
+  if(filterkey && filterval) {
+    jfilter[filterkey] = filterval;
+  }
   if (date0) {
     jfilter = {
       ...jfilter,
@@ -793,7 +786,7 @@ router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
     });
     jfilter = { ...jfilter, assetId: { [Op.in]: list } };
   }
-  console.log('jfilter', jfilter);
+  // console.log('jfilter', jfilter);
   await db['logrounds']
     .findAndCountAll({
       where: {
@@ -814,6 +807,7 @@ router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
           totalHighAmount,
           totalAmount,
           expiry,
+          assetId
         } = el;
         startingPrice = Number(startingPrice);
         endPrice = Number(endPrice);
@@ -824,7 +818,7 @@ router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
           el['outcome'] = 'LOW';
           await db['logfees']
             .findAll({
-              where: { typestr: 'FEE_TO_ADMIN', bet_expiry: expiry },
+              where: { typestr: feetype, bet_expiry: expiry, assetId: assetId },
               raw: true,
               attributes: [
                 [db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')), 'sum'],
@@ -838,7 +832,7 @@ router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
           el['outcome'] = 'HIGH';
           await db['logfees']
             .findAll({
-              where: { typestr: 'FEE_TO_ADMIN', bet_expiry: expiry },
+              where: { typestr: feetype, bet_expiry: expiry, assetId: assetId },
               raw: true,
               attributes: [
                 [db.Sequelize.fn('SUM', db.Sequelize.col('feeamount')), 'sum'],
@@ -864,7 +858,24 @@ router.get('/betrounds/list/:asset/:offset/:limit', async (req, res) => {
     });
 });
 
-router.get('/asset/list/:offset/:limit', async (req, res) => {
+router.get('/round/log/:assetId/:expiry/:offset/:limit', adminauth, async (req, res) => {
+  let userList = await getUserList(req.isadmin);
+  let jfilter = { uid: {[Op.in]: userList} };
+  let { assetId, expiry, offset, limit } = req.params;
+  offset = +offset;
+  limit = +limit;
+
+  await db['betlogs']
+    .findAndCountAll({
+      where: { ...jfilter, assetId, expiry },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+});
+
+router.get('/asset/list/:offset/:limit', adminauth, async (req, res) => {
   let { offset, limit } = req.params;
   offset = +offset;
   limit = +limit;
@@ -945,7 +956,7 @@ router.get('/branch/:offset/:limit/:orderkey/:orderval', async (req, res) => {
       },
     };
   }
-  console.log('jfilter', jfilter);
+  // console.log('jfilter', jfilter);
 
   db['users']
     .findAndCountAll({
@@ -1195,12 +1206,39 @@ router.get('/user/levels', async (req, res) => {
 
 router.get('/assets', (req, res) => {
   let { group, searchkey } = req.query;
+  let { date0, date1 } = req.query;
+
   let jfilter = {};
+  if (date0) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date0 && date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
   if (group) {
     jfilter['groupstr'] = group;
   }
   if (searchkey) {
-    jfilter = { name: { [Op.like]: `%${searchkey}%` } };
+    jfilter = { APISymbol: { [Op.like]: `%${searchkey}%` } };
   }
   db['assets']
     .findAll({
@@ -1264,7 +1302,7 @@ router.get('/referrals/:isbranch/:offset/:limit', async (req, res) => {
       },
     };
   }
-  console.log('jfilter', jfilter);
+  // console.log('jfilter', jfilter);
   // let jfilter2 = {};
   // if (isadmin === 1) {
   //   jfilter2 = {
@@ -1295,6 +1333,7 @@ router.get('/referrals/:isbranch/:offset/:limit', async (req, res) => {
       where: {
         isbranch,
         // isadmin: 0,
+        ...jfilter
       },
       offset,
       limit,
@@ -1513,14 +1552,59 @@ router.get('/referrals/:isbranch/:offset/:limit', async (req, res) => {
 });
 
 router.get('/transactions/:isbranch/:type/:offset/:limit', async (req, res) => {
+  // let userList = await getUserList(req.isadmin);
+  let userList = await getUserList(2);
   let { isbranch, type, offset, limit } = req.params;
-  let { date0, date1, filterkey, filterval, searchkey } = req.query;
+  let { date0, date1, filterkey, filterval, searchkey, orderkey, orderval, query_key } =
+    req.query;
   offset = +offset;
   limit = +limit;
   let jfilter = {};
-  if (filterkey && filterval) {
-    jfilter[filterkey] = filterval;
+  if (!orderkey && !orderval) {
+    (orderkey = 'id'), (orderval = 'DESC');
   }
+
+  // if (filterkey && filterval) {
+  //   jfilter[filterkey] = filterval;
+  // }
+  // if(orderkey && orderval) {
+  //   if(orderkey === 'DEPOSIT_AMOUNT') {
+  //     orderkey = 'amount'
+  //     orderval = 'DESC'
+  //   }
+    
+  // }
+
+  if(query_key === 'USD_AMOUNT') {
+    let newList = [];
+    await db['balances'].findAll({
+      where: {
+        uid: {
+          [Op.in]: userList
+        },
+        typestr: 'LIVE'
+      },
+      raw: true,
+      order: [['total', 'DESC']]
+    }).then((resp) => {
+      resp.map((el) => {
+        if(el.id) {
+          newList.push(el.id)
+        }
+      })
+
+      userList = newList;
+    })
+  }
+  // if (filterkey === 'ACCUMUL_DEPOSIT_AMOUNT') {
+  // }
+  // if (filterkey === 'USD_AMOUNT') {
+  // }
+  // if (filterkey === 'WITHDRAW_AMOUNT') {
+  // }
+  // if (filterkey === 'ACCUMUL_WITHDRAW_AMOUNT') {
+  // }
+
   if (date0) {
     jfilter = {
       ...jfilter,
@@ -1546,70 +1630,36 @@ router.get('/transactions/:isbranch/:type/:offset/:limit', async (req, res) => {
       },
     };
   }
+  console.log('searchkey', searchkey);
   if (searchkey) {
-    jfilter = {
-      ...jfilter,
-      email: {
-        [Op.like]: `%${searchkey}%`,
+    let newList = [];
+
+    await db['users'].findAll({
+      where: {
+        id: {
+          [Op.in]: userList
+        },
+        email: {
+          [Op.like]: `%${searchkey}%`,
+        },
       },
-    };
+      raw: true,
+    }).then((resp) => {
+      resp.map((el) => {
+        newList.push(el.id)
+      })
+      userList = newList;
+    })
   }
+
   jfilter = {
     ...jfilter,
     typestr: type,
   };
-  console.log('jfilter', jfilter);
-  // let jfilter2 = {};
-  // if (isadmin === 1) {
-  //   jfilter2 = {
-  //     ...jfilter2,
-  //     typestr: 'MAIN',
-  //   };
-  // }
-  // if (isadmin === 0) {
-  //   jfilter2 = {
-  //     ...jfilter2,
-  //     typestr: 'BRANCH',
-  //   };
-  // }
+  // console.log('jfilter', jfilter);
 
-  let userList = [];
 
-  await db['users']
-    .findAll({
-      where: { isbranch },
-      raw: true,
-    })
-    .then((resp) => {
-      resp.map((el) => {
-        let { id } = el;
-        userList.push(id);
-      });
-    });
-  // await db['users']
-  //   .findAndCountAll({
-  //     where: { isbranch },
-  //     raw: true,
-  //   })
-  //   .then((resp) => {
-  //     let {rows, count} = resp
-  //     let promises = rows.map(async (el) => {
-  //       let {id} = el;
-  //       await db['balances'].findOne({
-  //         where: {uid: id, typestr: 'LIVE'},
-  //         raw: true,
-  //       }).then((resp) => {
-  //         el['usd_amount'] = resp.total / 10 ** 6;
-  //       })
-  //       await db['userwallets'].findOne({
-  //         where: {uid: id},
-  //         raw:true,
-  //       }).then((resp) => {
-  //         el['user_wallet_address'] = resp.walletaddress;
-  //       })
-  //     })
-  //   });
-
+  console.log('key', orderkey, orderval);
   db['transactions']
     .findAndCountAll({
       where: {
@@ -1620,45 +1670,15 @@ router.get('/transactions/:isbranch/:type/:offset/:limit', async (req, res) => {
       },
       offset,
       limit,
-      order: [['id', 'DESC']],
+      order: [[orderkey, orderval]],
       raw: true,
     })
     .then(async (resp) => {
       // console.log(resp);
-      console.log(typeof isbranch);
       let promises = resp.rows.map(async (el) => {
-        let { id, uid, typestr, amount, senderaddr, rxaddr } = el;
+        let { id, uid, typestr, amount, senderaddr, rxaddr, type: t_type } = el;
         if (isbranch === '0') {
           el['method'] = 'Tether';
-          // if (type === 'DEPOSIT') {
-          //   el['senderaddr'] = senderaddr;
-          // } else if (type === 'WITHDRAW') {
-          //   el['rxaddr'] = rxaddr;
-          // }
-          // if (type === 'DEPOSIT') {
-          //   await db['transactions']
-          //     .findAll({
-          //       where: {
-          //         typestr: type,
-          //         uid,
-          //         id: {
-          //           [Op.lte]: id,
-          //         },
-          //       },
-          //       raw: true,
-          //       attributes: [
-          //         [db.Sequelize.fn('SUM', db.Sequelize.col('amount')), 'sum'],
-          //       ],
-          //     })
-          //     .then((resp) => {
-          //       let [{ sum }] = resp;
-          //       sum = sum / 10 ** 6;
-          //       el['cumulative_amount'] = sum;
-          //     });
-          // }
-          // if (type === 'WITHDRAW') {
-
-          // }
           await db['transactions']
             .findAll({
               where: {
@@ -1727,6 +1747,7 @@ router.get('/transactions/:isbranch/:type/:offset/:limit', async (req, res) => {
               });
           }
         }
+
 
         amount = amount / 10 ** 6;
         el['amount'] = amount;
@@ -1802,12 +1823,12 @@ router.get('/notifications/:offset/:limit', async (req, res) => {
   if (searchkey) {
     jfilter = {
       ...jfilter,
-      email: {
+      title: {
         [Op.like]: `%${searchkey}%`,
       },
     };
   }
-  console.log('jfilter', jfilter);
+  // console.log('jfilter', jfilter);
   db['notifications']
     .findAll({
       where: {
@@ -1853,6 +1874,70 @@ router.get('/domain/setting/:type', async (req, res) => {
         respok(res, null, null, { url: resp.url });
       });
   }
+});
+
+router.get('/inquiry/:offset/:limit', async (req, res) => {
+  let { offset, limit } = req.params;
+  let { date0, date1, searchkey } = req.query;
+  offset = +offset;
+  limit = +limit;
+
+  let jfilter = {};
+
+  if (date0) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (date0 && date1) {
+    jfilter = {
+      ...jfilter,
+      createdat: {
+        [Op.gte]: moment(date0).format('YYYY-MM-DD HH:mm:ss'),
+        [Op.lte]: moment(date1).format('YYYY-MM-DD HH:mm:ss'),
+      },
+    };
+  }
+  if (searchkey) {
+    jfilter = {
+      ...jfilter,
+      content: {
+        [Op.like]: `%${searchkey}%`,
+      },
+    };
+  }
+  await db['inquiry']
+    .findAndCountAll({
+      where: { ...jfilter },
+      raw: true,
+      offset,
+      limit,
+      order: [['id', 'DESC']],
+    })
+    .then(async (resp) => {
+      let { rows, count } = resp;
+      let promises = rows.map(async (el) => {
+        let { writer_uid } = el;
+        el['user'] = await db['users'].findOne({
+          where: { id: writer_uid },
+          raw: true,
+        });
+      });
+
+      await Promise.all(promises);
+      respok(res, null, null, { resp });
+    });
 });
 // router.get('/referrals/:iswho/:offset/:limit/:orderkey/:orderval', async (req, res) => {
 
@@ -1920,6 +2005,13 @@ router.get('/domain/setting/:type', async (req, res) => {
 //       },
 //     };
 //   }
-//   console.log('jfilter', jfilter);
+  // console.log('jfilter', jfilter);
+
+router.get('/auth/test', adminauth, async (req, res) => {
+  let { id } = req.decoded;
+  console.log(req.admin_level);
+  console.log(req.isadmin);
+  respok(res, null, null, id);
+});
 
 module.exports = router;

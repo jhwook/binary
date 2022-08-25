@@ -12,7 +12,11 @@ const get30secPrice = async (assetId, expiry, i, temp) => {
       raw: true,
     })
     .then(async (resp) => {
+			if ( resp ) {}
+			else { return null }
       let { name, dispSymbol, socketAPISymbol } = resp;
+			if ( socketAPISymbol ) {}
+			else { return null }  
       let currentPrice = await cliredisa.hget(
         'STREAM_ASSET_PRICE',
         socketAPISymbol

@@ -12,6 +12,8 @@ const getTickerPrice = async () => {
     .then(async (resp) => {
       resp.forEach(async (el) => {
         let { APISymbol, tickerSrc } = el;
+				if ( APISymbol &&  tickerSrc) {}
+				else { return }
         await axios
           .get(
             `https://api.twelvedata.com/price?symbol=${APISymbol}&exchange=${tickerSrc}&apikey=c092ff5093bf4eef83897889e96b3ba7`
@@ -20,7 +22,7 @@ const getTickerPrice = async () => {
             let { price } = resp.data;
 
             cliredisa.hset('STREAM_ASSET_PRICE_PER_MIN', APISymbol, price);
-            console.log(APISymbol, tickerSrc, price);
+            // console.log(APISymbol, tickerSrc, price);
           });
       });
     });

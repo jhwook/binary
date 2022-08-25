@@ -14,7 +14,7 @@ module.exports = (io, socket) => {
 
     console.log('type', type);
     console.log('id', id);
-
+    console.log('@@@@@@@@@@@@@@@@@@transactions');
     await watchTransfers(wallet, type, id, txId, socket);
   });
 
