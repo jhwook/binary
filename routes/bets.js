@@ -1,3 +1,10 @@
+
+///////////////////////////////// telegram /////////////////////////////////
+const TelegramBot = require('node-telegram-bot-api');
+const token = '5476345761:AAHu7pgjWdMFXZF-FvugQI3pM9t12FWI3Rw';
+const bot = new TelegramBot(token);
+const bot_option = true;
+///////////////////////////////// telegram /////////////////////////////////
 var express = require('express');
 const requestIp = require('request-ip');
 let { respok, resperr } = require('../utils/rest');
@@ -70,12 +77,13 @@ const ensure_enforce_refuse_fast_bids = async (jbetinfo) => {
     return { status: false, sig: betsig, deltatimeunix, timenowunix };
   } // timenowunix
 };
-router.post(
-  '/join/:type/:assetId/:amount/:dur/:side',
+router.post(  '/join/:type/:assetId/:amount/:dur/:side',
   auth,
   async (req, res) => {
     //side가 0일 경우 LOW, 1일 경우 HIGH로 취급한다.
     // console.log('req.decoded', req.decoded);
+    let ASSET;
+    const NOW = moment(new Date()).format('MM-DD HH:mm:ss');
     let { amount, assetId, dur, side, type } = req.params;
     if (!assetId || !amount || !type) {
       resperr(res, 'INVALID-DATA');
@@ -87,6 +95,7 @@ router.post(
       .findOne({ where: { active: 1, id: assetId }, raw: true })
       .then(async (resp) => {
         let { APISymbol } = resp;
+        ASSET = APISymbol;
         currentPrice = await cliredisa.hget(
           'STREAM_ASSET_PRICE_PER_MIN',
           APISymbol
@@ -124,6 +133,15 @@ router.post(
           return;
         }
       }
+
+      await db['balances'].increment('avail', {
+        by: -1 * amount,
+        where: { typestr: type, uid: id },
+      });
+      await db['balances'].increment('locked', {
+        by: amount,
+        where: { typestr: type, uid: id },
+      });
       let starting = moment().add(1, 'minutes').set('second', 0);
       let expiry = moment()
         .add(Number(dur) + 1, 'minutes')
@@ -141,16 +159,29 @@ router.post(
       // let uuid = create_uuid_via_namespace(STRINGER(betdata));
       // betdata['uuid'] = uuid;
       // let t = await db.sequelize.transaction();
-
+			let sha256id = sha256( STRINGER( betdata ) ) 
+      betdata = {
+        ...betdata,
+        sha256id: sha256id
+      }
       let bets = await db['bets'].create(betdata);
-      await db['balances'].increment('avail', {
-        by: -1 * amount,
-        where: { typestr: type, uid: id },
-      });
-      await db['balances'].increment('locked', {
-        by: amount,
-        where: { typestr: type, uid: id },
-      });
+
+      if(bot_option) {
+        bot.sendMessage(
+          -1001775593548,
+          `[BET]
+           user: ${id}
+           asset: ${ASSET}
+           side: ${side}
+           amount: ${amount / 10 ** 6}
+           duration: ${dur}
+           start: ${starting.format('MM-DD HH:mm:ss')}
+           end: ${expiry.format('MM-DD HH:mm:ss')}
+          `
+          );
+      }
+      
+   
 
       respok(res, 'BIDDED', null, {
         expiry: expiry,
@@ -185,23 +216,24 @@ router.post(
       let expiry = moment()
         .add(Number(dur) + 1, 'minutes')
         .set('second', 0);
-      let t = await db.sequelize.transaction();
+      
       try {
-        let bets = await db['bets'].create(
-          {
-            uuid: demo_uuid,
-            assetId: assetId,
-            amount: amount,
-            starting: starting.unix(),
-            expiry: expiry.unix(),
-            side: side,
-            type: 'DEMO',
-            startingPrice: currentPrice,
-          },
-          {
-            transaction: t,
-          }
-        );
+        let betdata = {
+          uuid: demo_uuid,
+          assetId: assetId,
+          amount: amount,
+          starting: starting.unix(),
+          expiry: expiry.unix(),
+          side: side,
+          type: 'DEMO',
+          startingPrice: currentPrice,
+        };
+        let sha256id = sha256( STRINGER( betdata ) ) 
+        betdata = {
+          ...betdata,
+          sha256id: sha256id
+        }
+
 
         await db['balances'].increment(
           'avail',
@@ -209,19 +241,13 @@ router.post(
             by: -1 * amount,
             where: { typestr: 'DEMO', uuid: demo_uuid, uid: null },
           },
-          {
-            transaction: t,
-          }
         );
         await db['balances'].increment(
           'locked',
           { by: amount, where: { typestr: 'DEMO', uuid: demo_uuid } },
-          {
-            transaction: t,
-          }
         );
 
-        await t.commit();
+        let bets = await db['bets'].create(betdata);
 
         respok(res, 'BIDDED', null, {
           expiry: expiry,
@@ -696,8 +722,7 @@ router.get('/count/:type', async (req, res) => {
   }
 });
 
-router.post(
-  '/bot/join/:type/:assetId/:amount/:dur/:side/:id',
+router.post(  '/bot/join/:type/:assetId/:amount/:dur/:side/:id',
   async (req, res) => {
     //side가 0일 경우 LOW, 1일 경우 HIGH로 취급한다.
     // console.log('req.decoded', req.decoded);

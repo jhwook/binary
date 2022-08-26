@@ -17,7 +17,7 @@ deleteTickers = async () => {
       let promises = resp.map((asset) => {
         db['tickerprice']
           .findAll({
-            where: { symbol: asset.socketAPISymbol },
+            where: { symbol: asset.APISymbol },
             order: [['id', 'DESC']],
             limit: 5000,
             raw: true,

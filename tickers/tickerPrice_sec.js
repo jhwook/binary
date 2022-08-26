@@ -9,17 +9,20 @@ const getTickerPrice_sec = async () => {
       raw: true,
     })
     .then(async (resp) => {
-      let promises = resp.map(async (el) => {
-        let { socketAPISymbol } = el;
-				if ( socketAPISymbol ) {}
+      resp.map(async (el) => {
+        let { socketAPISymbol, APISymbol, id } = el;
+				if ( APISymbol ) {}
 				else { return null  }
-        let price = await cliredisa.hget('STREAM_ASSET_PRICE', socketAPISymbol);
-        db['tickerprice'].create({
-          symbol: socketAPISymbol,
-          price: price,
-        });
+        let price = await cliredisa.hget('STREAM_ASSET_PRICE', APISymbol);
+        if(price) {
+          db['tickerprice'].create({
+            symbol: APISymbol,
+            price: price,
+            assetId: id
+          });
+        }
       });
-      await Promise.all(promises);
+      // await Promise.all(promises);
     });
 };
 

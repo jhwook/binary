@@ -14,7 +14,7 @@ const {
   ASSETID_REDIS_SYMBOL,
 } = require('../utils/ticker_symbol');
 const cliredisa = require('async-redis').createClient();
-const { calculate_dividendrate } = require('./calculateDividendRate');
+const { calculate_dividendrate, calculate_dividendrate_sec } = require('./calculateDividendRate');
 const EXPONENT_FOR_PREC_DEF = 6;
 const MAP_SIGN_OF_DELTA_PRICES_TO_SIDE = { 1: 'HIGH', 0: 'TIE', '-1': 'LOW' };
 const B_REFERENCE_BRANCH_TABLE = false 
@@ -99,6 +99,12 @@ const closeBet = async () => {
       raw: true,
     })
     .then(async (resp) => {
+      let assetList = [];
+      resp.map((el) => {
+        assetList.push(el.id);
+      });
+      calculate_dividendrate_sec(assetList, 'LIVE');
+      calculate_dividendrate_sec(assetList, 'DEMO');
       for (let type = 0; type < 2; type++) {
         if (type === 0) {
           type = 'LIVE';
@@ -184,11 +190,19 @@ const closeBet = async () => {
                     } else {
                       status = 3;
                     }
-
+                    let winAmount;
+                    if(status === 0) {
+                      winAmount = 0
+                    } else if(status === 1) {
+                      winAmount = (((+v.amount / 10 ** EXPONENT_FOR_PREC_DEF) *
+                      +v.diffRate) /
+                    100).toFixed(2)
+                    } else if(status === 2) {
+                      winAmount = 0
+                    }
                     if (v.type === 'LIVE') {
                       live_demo[0] = live_demo[0] + 1;
-                      await db['betlogs']
-                        .create({
+                      await db['betlogs']                        .create({
                           uid: v.uid,
                           assetId: v.assetId,
                           assetName: name,
@@ -202,11 +216,8 @@ const closeBet = async () => {
                           status: status,
                           diffRate: v.diffRate,
                           uuid: v.uuid, // added
-                          winamount: status
-                            ? ((+v.amount / 10 ** EXPONENT_FOR_PREC_DEF) *
-                                +v.diffRate) /
-                              100
-                            : null,
+                          winamount: winAmount,
+													sha256id : v.sha256id? v.sha256id : null
                         })
                         .then(async (resp) => {
                           await db['bets'].destroy({ where: { id: v.id } });
@@ -215,8 +226,7 @@ const closeBet = async () => {
                       live_demo[1] = live_demo[1] + 1;
 
                       if (v.uid) {
-                        await db['betlogs']
-                          .create({
+                        await db['betlogs']                          .create({
                             uid: v.uid,
                             assetId: v.assetId,
                             assetName: name,
@@ -230,19 +240,15 @@ const closeBet = async () => {
                             status: status,
                             diffRate: v.diffRate,
                             uuid: v.uuid, // added
-                            winamount: status
-                              ? ((+v.amount / 10 ** EXPONENT_FOR_PREC_DEF) *
-                                  +v.diffRate) /
-                                100
-                              : null,
+                            winamount: winAmount,
+														sha256id : v.sha256id? v.sha256id : null
                           })
                           .then(async (resp) => {
                             await db['bets'].destroy({ where: { id: v.id } });
                           });
                       }
                       if (v.uuid) {
-                        await db['betlogs']
-                          .create({
+                        await db['betlogs']                          .create({
                             uuid: v.uuid, // already there
                             assetId: v.assetId,
                             assetName: name,
@@ -255,9 +261,8 @@ const closeBet = async () => {
                             endingPrice: currentPrice,
                             status: status,
                             diffRate: v.diffRate,
-                            winamount: status
-                              ? ((+v.amount / 10 ** EXPONENT_FOR_PREC_DEF) * +v.diffRate) / 100
-                              : null,
+                            winamount: winAmount,
+														sha256id : v.sha256id? v.sha256id : null
                           })
                           .then(async (resp) => {
                             await db['bets'].destroy({ where: { id: v.id } });
@@ -424,8 +429,7 @@ const settlebets = async (
     live_demo,
   });
   /////////////////////////////////////////////////////////// DRAW (LIVE && DEMO)
-  await db['betlogs']
-    .findAll({
+  await db['betlogs']    .findAll({
       where: {
         assetId,
         expiry,
@@ -458,8 +462,7 @@ const settlebets = async (
       // const t = await db.sequelize.transaction();
       // try {
       /////////////////////////////////////////// LOSER
-      await db['betlogs']
-        .findAll({
+      await db['betlogs']        .findAll({
           where: {
             assetId,
             expiry,
@@ -477,8 +480,7 @@ const settlebets = async (
           });
         });
       /////////////////////////////////////////// WINNER
-      await db['betlogs']
-        .findAll({
+      await db['betlogs']        .findAll({
           where: {
             assetId,
             expiry,
@@ -677,6 +679,8 @@ const settlebets = async (
               //   transaction: t,
               // }
             );
+            let winAmount = (earned_after_fee / 10 ** 6).toFixed(2); 
+            await db['betlogs'].update({ winamount: winAmount },{ where: { id: v.id } })
           });
         });
       // await t.commit();
@@ -693,8 +697,7 @@ const settlebets = async (
     } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
       // const t = await db.sequelize.transaction();
       try {
-        await db['betlogs']
-          .findAll({
+        await db['betlogs']          .findAll({
             where: {
               assetId,
               expiry,
@@ -718,8 +721,7 @@ const settlebets = async (
             });
           });
 
-        await db['betlogs']
-          .findAll({
+        await db['betlogs']          .findAll({
             where: {
               assetId,
               expiry,
@@ -730,7 +732,15 @@ const settlebets = async (
           })
           .then(async (winners) => {
             winners.map(async (v) => {
-              let { uid } = v;
+              let { uid, uuid } = v;
+
+              if(uid) {
+
+              }
+
+              if(uuid) {
+
+              }
               let earned =
                 Math.ceil((loserTotalAmount * v.amount) / winnerTotalAmount) ||
                 0;
@@ -748,7 +758,7 @@ const settlebets = async (
               );
               await db['balances'].increment(
                 'avail',
-                { by: v.amount, where: { uid: v.uid, typestr: v.type } }
+                { by: v.amount + earned, where: { uid: v.uid, typestr: v.type } }
                 // {
                 //   transaction: t,
                 // }
@@ -763,6 +773,8 @@ const settlebets = async (
                 //   transaction: t,
                 // }
               );
+              let winAmount = (earned / 10 ** 6).toFixed(2)
+              await db['betlogs'].update({ winamount: winAmount },{ where: { id: v.id } })
             });
           });
         // await t.commit();

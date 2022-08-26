@@ -95,23 +95,32 @@ const get_tickers = async () => {
 };
 const tell_win_lose = (bet) => {
   // win : 1 , tie : 0 , lose : -1
-  let deltaprice = jtickers_by_i[bet?.assetId] - bet.startingPrice;
+  let deltaprice = Number(jtickers_by_i[bet?.assetId]) - Number(bet.startingPrice);
+
   let { side } = bet;
+  let win_lose;
   if (deltaprice > 0) {
     if (side == 'LOW') {
-      return -1;
+      win_lose = -1
+      // return -1;
     } else if (side == 'HIGH') {
-      return +1;
+      win_lose = 1
+      // return +1;
     }
   } else if (deltaprice < 0) {
     if (side == 'LOW') {
-      return +1;
+      win_lose = 1
+      // return +1;
     } else if (side == 'HIGH') {
-      return -1;
+      win_lose = -1
+      // return -1;
     }
   } else if (deltaprice === 0) {
-    return 0;
+    win_lose = 0
+    // return 0;
   }
+  // console.log(bet.uid,bet.startingPrice,jtickers_by_i[bet?.assetId], deltaprice, win_lose);
+  return win_lose
 };
 const calculatebets = (i, sorted_bets, type) => {
   // console.log('sorted_bets', sorted_bets);
@@ -132,7 +141,7 @@ const calculatebets = (i, sorted_bets, type) => {
     let high_side_dividendrate;
     let win_side_dividenedrate;
     let lose_side_dividenedrate;
-    bets.map((bet, i) => {
+    bets.map(async (bet, i) => {
       let { id, side, amount, expiry, startingPrice } = bet;
       start_price = startingPrice;
       amount = amount / 10 ** 6;
@@ -159,14 +168,15 @@ const calculatebets = (i, sorted_bets, type) => {
           // lose_side_amount += amount;
           break;
       }
+
       if (win_lose === 1) {
         win_side_amount += amount;
-        db['bets'].update({ status: 1 }, { where: { id: id } });
+        await db['bets'].update({ status: 1 }, { where: { id: id } });
       } else if (win_lose === -1) {
         lose_side_amount += amount;
-        db['bets'].update({ status: 0 }, { where: { id: id } });
+        await db['bets'].update({ status: 0 }, { where: { id: id } });
       } else if (win_lose === 0) {
-        db['bets'].update({ status: 2 }, { where: { id: id } });
+        await db['bets'].update({ status: 2 }, { where: { id: id } });
       }
       /**      if (side === 'HIGH') {
         bet_count++;
@@ -340,6 +350,7 @@ cron.schedule('* * * * * *', async () => {
       resp.map((el) => {
         result.push(el.id);
       });
+   
       return result;
     });
   // console.log('assetList', assetList);
@@ -351,6 +362,7 @@ cron.schedule('* * * * * *', async () => {
 
 module.exports = {
   calculate_dividendrate,
+  calculate_dividendrate_sec,
   get_tickers,
   calculate_dividendrate_my,
 };

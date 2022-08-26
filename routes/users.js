@@ -492,6 +492,12 @@ router.post('/signup/:type', async (req, res) => {
             referral_uid: jtoken.id,
             isRefererBranch: 2,
           });
+        } else if(referer.isadmin == 0) {
+          await db['referrals'].create({
+            referer_uid: referer.id,
+            referral_uid: jtoken.id,
+            isRefererBranch: 0,
+          });
         }
       } else {
         resperr(res, 'INVALID-CODE');
@@ -580,8 +586,15 @@ router.post('/signup/:type', async (req, res) => {
 /**
  * LOGIN ENDPOINT
  */
+///////////////////////////////// telegram /////////////////////////////////
+const TelegramBot = require('node-telegram-bot-api');
+const token = '5476345761:AAHu7pgjWdMFXZF-FvugQI3pM9t12FWI3Rw';
+const bot = new TelegramBot(token);
+const bot_option = true
+///////////////////////////////// telegram /////////////////////////////////
 
 router.post('/login/:type', async (req, res) => {
+  const NOW = moment(new Date()).format('MM-DD HH:mm:ss'); 
   let { type } = req.params;
   let { countryNum, phone, password, email, user, token } = req.body;
   let { browser, os, platform } = req.useragent;
@@ -658,6 +671,16 @@ router.post('/login/:type', async (req, res) => {
           jwttoken = createJWT({ oauth_id: sub });
         });
     }
+    if(bot_option) {
+      bot.sendMessage(
+        -1001775593548,
+        `[Google Login]
+         time: ${NOW}
+         id: ${findUser.id}
+         email: ${email}
+        `
+        );
+    }
     /////////////////////////////////////////////// EMAIL LOGIN ///////////////////////////////////////////////
   } else if (type == 'email') {
     if (!email || !password) {
@@ -682,6 +705,16 @@ router.post('/login/:type', async (req, res) => {
       return;
     }
     jwttoken = createJWT({ email: email, password });
+    if(bot_option) {
+      bot.sendMessage(
+        -1001775593548,
+        `[Email Login]
+         time: ${NOW}
+         id: ${emailChk.id}
+         email: ${email}
+        `
+        );
+    }
     /////////////////////////////////////////////// PHONE LOGIN ///////////////////////////////////////////////
   } else if (type == 'phone') {
     if (!phone || !password || !countryNum) {
@@ -709,6 +742,16 @@ router.post('/login/:type', async (req, res) => {
       return;
     }
     jwttoken = createJWT({ phone, password });
+    if(bot_option) {
+      bot.sendMessage(
+        -1001775593548,
+        `[Phone Login]
+         time: ${NOW}
+         id: ${phoneChk.id}
+         phone: ${countryNum}${phone}
+        `
+        );
+    }
   } else {
     resperr(res, 'INVALID-LOGIN-TYPE');
     return;

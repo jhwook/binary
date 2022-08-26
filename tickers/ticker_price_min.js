@@ -11,19 +11,12 @@ const getTickerPrice = async () => {
     })
     .then(async (resp) => {
       resp.forEach(async (el) => {
-        let { APISymbol, tickerSrc } = el;
-				if ( APISymbol &&  tickerSrc) {}
+        let { APISymbol } = el;
+				if ( APISymbol ) {}
 				else { return }
-        await axios
-          .get(
-            `https://api.twelvedata.com/price?symbol=${APISymbol}&exchange=${tickerSrc}&apikey=c092ff5093bf4eef83897889e96b3ba7`
-          )
-          .then((resp) => {
-            let { price } = resp.data;
+        let price = await cliredisa.hget('STREAM_ASSET_PRICE', APISymbol);
 
-            cliredisa.hset('STREAM_ASSET_PRICE_PER_MIN', APISymbol, price);
-            // console.log(APISymbol, tickerSrc, price);
-          });
+        cliredisa.hset('STREAM_ASSET_PRICE_PER_MIN', APISymbol, price);
       });
     });
 };
@@ -32,18 +25,3 @@ cron.schedule('0 * * * * *', async () => {
 });
 
 module.exports = { getTickerPrice };
-
-// insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',1000000, 1000, 1000000, 1000, 1000000,1000, 'user000', 'user111', 10000000, 'XRP_USDT');
-// insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',1000000, 1000, 1500000, 500, 1000000,1000, 'user000', 'user111', 10000000, 'XRP_USDT');
-// insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',450000, 500, 450000, 500, 900000,1000, 'user000', 'user111', 9000000, 'XRP_USDT');
-// insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',1000000, 1000, 1000000, 1000, 1000000,1000, 'user000', 'user111', 10000000, 'XRP_USDT');
-// insert into logfills (market, asset, matchbase,matchfloat,amountbase0, amountfloat0,amountbase1,amountfloat1, buyerusername, sellerusername, price,marketsymbol) values ('USDT', 'XRP',1000000, 1000, 1000000, 1000, 1000000,1000, 'user000', 'user111', 10000000, 'XRP_USDT');
-// CREATE TABLE `tickerprice` (
-//   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-//   `createdat` datetime DEFAULT current_timestamp(),
-//   `updatedat` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-//   `symbol` varchar(50) DEFAULT NULL,
-//   `price` varchar(40) DEFAULT NULL,
-//   `assetId` int(11) unsigned DEFAULT NULL,
-//   PRIMARY KEY (`id`)
-// )
