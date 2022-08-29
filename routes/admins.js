@@ -258,7 +258,7 @@ router.patch('/profile', async (req, res) => {
 
 router.post('/add/branch/:type', adminauth, async (req, res) => {
 
-  if(req.isadmin !== 1) {
+  if(req.isadmin !== 2) {
     return res.status(401).json({
       code: 401,
       message: 'No Admin Privileges',
@@ -295,7 +295,13 @@ router.post('/add/branch/:type', adminauth, async (req, res) => {
         bankName: bankName,
         bankAccount: bankAccount,
         phone: phone,
+        walletAddress: walletAddress,
       };
+      await db['branchusers'].create(jdata).then((resp) => {
+        db['users'].update({isadmin: 1}, {where: {id: branchuser.id}}).then((resp) => {
+          respok(res, 'SUCCESS');
+        })
+      });
     } else if (type === 'GENERAL' || type == 'COMMON') {
       jdata = {
         ...jdata,
@@ -304,10 +310,12 @@ router.post('/add/branch/:type', adminauth, async (req, res) => {
         walletAddress: walletAddress,
         phone: phone,
       };
+      await db['branchusers'].create(jdata).then((resp) => {
+        db['users'].update({isadmin: 3}, {where: {id: branchuser.id}}).then((resp) => {
+          respok(res, 'SUCCESS');
+        })
+      });
     }
-    await db['branchusers'].create(jdata).then((resp) => {
-      respok(res, 'SUCCESS');
-    });
   }
 
   // CREATE TABLE `adminusers` (
@@ -1830,7 +1838,7 @@ router.get('/notifications/:offset/:limit', async (req, res) => {
   }
   // console.log('jfilter', jfilter);
   db['notifications']
-    .findAll({
+    .findAndCountAll({
       where: {
         ...jfilter,
       },
@@ -1875,6 +1883,16 @@ router.get('/domain/setting/:type', async (req, res) => {
       });
   }
 });
+
+router.post('/add/domain', adminauth, async (req, res) => {
+  let { url } = req.body;
+  db['domainsettings'].create({
+    url,
+    active: 0
+  }).then((resp) => {
+    respok(res, 'SUCCESS')
+  })
+})
 
 router.get('/inquiry/:offset/:limit', async (req, res) => {
   let { offset, limit } = req.params;
@@ -2007,11 +2025,11 @@ router.get('/inquiry/:offset/:limit', async (req, res) => {
 //   }
   // console.log('jfilter', jfilter);
 
-router.get('/auth/test', adminauth, async (req, res) => {
+router.get('/auth', adminauth, async (req, res) => {
   let { id } = req.decoded;
   console.log(req.admin_level);
   console.log(req.isadmin);
-  respok(res, null, null, id);
+  respok(res, null, null, {resp: req.decoded});
 });
 
 module.exports = router;

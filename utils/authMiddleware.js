@@ -44,7 +44,7 @@ exports.softauth = (req, res, next) => {
       }
     );
   } catch (error) {
-    req.decoded = false;
+    // req.decoded = false;
     return next();
   }
 };
@@ -60,17 +60,29 @@ exports.adminauth = async (req, res, next) => {
           message: 'No Admin Privileges',
         });
       }
-
+      req.decoded = decoded;
       return decoded;
     }
   );
-
+  if(!id) {
+  return;
+  } else {}
   let user = await db['users'].findOne({ where: { id }, raw: true });
-  if (user.isadmin === user.isbranch) {
+  if (user.isadmin === 0) {
     return res.status(401).json({
       code: 401,
       message: 'No Admin Privileges',
     });
+  }
+  req.isadmin = user.isadmin;
+  if (user.isadmin === 1) {
+    req.admin_level = 'GENERAL';
+  }
+  if (user.isadmin === 3) {
+    req.admin_level = 'EXCLUSIVE';
+  }
+  if (user.isadmin === 2) {
+    req.admin_level = 'ADMIN';
   }
 
   return next();

@@ -18,55 +18,17 @@ const { calculate_dividendrate, calculate_dividendrate_sec } = require('./calcul
 const EXPONENT_FOR_PREC_DEF = 6;
 const MAP_SIGN_OF_DELTA_PRICES_TO_SIDE = { 1: 'HIGH', 0: 'TIE', '-1': 'LOW' };
 const B_REFERENCE_BRANCH_TABLE = false 
-// const { updateorcreaterow } = require( '../utils/db' )
 
-// const socketMessage = require('./socketMessage.js');
-// cron.schedule('10 * * * * *', async () => {
-//   console.log('@Round Checkings', moment().unix(), '@binopt');
-//   await closeBet();
-// });
-// module.exports = (io, socket) => {
-//   const socketMessage = async (id, data) => {
-//     console.log('socketid', socket.id);
-//     console.log('socket.decoded', socket.decoded);
+const TelegramBot = require('node-telegram-bot-api');
+const token = '5476345761:AAHu7pgjWdMFXZF-FvugQI3pM9t12FWI3Rw';
+const bot = new TelegramBot(token);
+const bot_option = true
 
-//     let usersocketid = await cliredisa.hget('USERN AME2SOCKID', id);
-
-//     socket.to(usersocketid).emit('bet_closed', data);
-//   };
-// };
-// const socketMessage = (io, socket) => {
-
-// };
-
-// module.exports = (io, socket) => {
-//   console.log(socket.id);
-//   const socketMessage = async (id, data) => {
-//     let usersocketid = await cliredisa.hget('USERNA ME2SOCKID', String(id));
-//     console.log(id, typeof id, usersocketid);
-//     if (usersocketid) {
-//       socket.to(usersocketid).emit('bet_closed', data);
-//     }
-//   };
 const { updatelogdaily } = require('../utils/logdaily');
 cron.schedule('0 * * * * *', async () => {
   console.log('@Round Checkings', moment().format('HH:mm:ss'), '@binopt');
   closeBet();
 });
-// module.exports = (io, socket) => {
-//   socketMessage(io, socket);
-// };
-
-// socketMessage(io, socket);
-// const socketFunc = (socket, id) => {
-//   console.log('socket id@@@@@@@@@@@@@@@', id);
-// };
-
-// const socketMessage = async (id, data) => {
-//   // let usersocketid = await cliredisa.hget('USERNA ME2SOCKID', String(id));
-
-//   socket.to(id).emit('bet_closed', data);
-// };
 
 const closeBet = async () => {
   const timenow = moment().startOf('minute');
@@ -220,6 +182,24 @@ const closeBet = async () => {
 													sha256id : v.sha256id? v.sha256id : null
                         })
                         .then(async (resp) => {
+                          if(bot_option) {
+                            await bot.sendMessage(
+                              -1001775593548,
+                              `[BET END]
+                               user_id: ${v.uid}
+                               bet_id: ${v.sha256id}
+                               asset: ${name}
+                               amount: ${v.amount / 10 ** 6}
+                               startingPrice: ${v.startingPrice}
+                               endingPrice: ${currentPrice}
+                               side: ${v.side}
+                               status: ${resp.dataValues.status}
+                               winamount: ${winAmount}
+															 sumBetAmtLose: ${sumBetAmount_lose_win[ 0 ] }
+															 sumBetAmtWin: ${sumBetAmount_lose_win[ 1 ] },
+                              `
+                              );
+                          }
                           await db['bets'].destroy({ where: { id: v.id } });
                         });
                     } else if (v.type === 'DEMO') {
@@ -459,8 +439,6 @@ const settlebets = async (
     console.log('LIVE');
     if (winnerTotalAmount === 0 || loserTotalAmount === 0) {
     } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
-      // const t = await db.sequelize.transaction();
-      // try {
       /////////////////////////////////////////// LOSER
       await db['betlogs']        .findAll({
           where: {
@@ -504,25 +482,87 @@ const settlebets = async (
               where: { id: uid },
               raw: true,
             });
-/*******************************/
-						if ( B_REFERENCE_BRANCH_TABLE ) {
-							if( betUser.branchid ) {
-								let respbranch  = await db['branchusers'].findOne ( { raw: true , where : { id : betUser.branchid } } )
-								if ( respbranch && respbranch.typestr == 'branch-chinese' ) {
-									
-								} else {}
-							} else { LOGGER(`@user branch is null/undefined`) }
-						} 
-/*******************************/
-            else if (betUser.isbranch === 1) {
+
+            // 수수료 지급 기준
+            // 본사 유저 (isbranch = 0) => 본사(2.5 %) + 추천인 (n %)
+            // 총판 유저 (isbranch = 1 or 2) => 본사(2.5 %) + 총판 (n %) + 추천인 (2.5 - n %)
+
+            // Fee to admin and update admin's balance
+            let admin = await db['users'].findOne({ 
+              where: { isadmin: 2 }, 
+              raw: true, 
+            });
+
+            await db['logfees'].create({
+              betId: id,
+              payer_uid: uid,
+              recipient_uid: admin.id ,
+              feeamount: fee_to_admin,
+              typestr: 'FEE_TO_ADMIN',
+              betamount: v.amount,
+              bet_expiry: expiry,
+              assetId,
+              fee_value: FEE_TO_ADMIN,
+            });
+            await updatelogdaily({
+              fieldname: 'sumfeeadmin',
+              incvalue: +fee_to_admin / 10 ** 6,
+            });
+            await db['balances'].increment(
+              ['total', 'avail'],
+              { 
+                by: fee_to_admin,
+                where: { uid: admin.id , typestr: v.type },
+              }
+            );
+
+
+            // 총판 유저 (총판에게 수수료 지급)
+           if (betUser.isbranch === 1 || betUser.isbranch === 2) {
               fee_to_branch = (earned * FEE_TO_BRANCH) / 10000;
               earned_after_fee = earned_after_fee - fee_to_branch;
+
+              let branch;
+              await db['referrals']
+              .findOne({ 
+                where: { referral_uid: uid, isRefererBranch: betUser.isbranch }, 
+                raw: true, 
+              })
+              .then((resp) => {
+                if (resp) { branch = resp; }
+              });
+
+              await db['logfees'].create({
+                betId: id,
+                payer_uid: uid,
+                recipient_uid: branch.referer_uid,
+                feeamount: fee_to_branch,
+                typestr: 'FEE_TO_BRANCH',
+                betamount: v.amount,
+                bet_expiry: expiry,
+                assetId,
+                fee_value: FEE_TO_BRANCH,
+              });
+              await updatelogdaily({
+                fieldname: 'sumfeebranch',
+                incvalue: +fee_to_branch / 10 ** 6,
+              });
+
+              await db['balances'].increment(
+                ['total', 'avail'],
+                {
+                  by: fee_to_branch,
+                  where: { uid: branch.referer_uid, typestr: v.type },
+                }
+              );
             }
+
+            // 추천인 수수료 지급
             await db['referrals']
-              .findOne(
-                { raw: true,                 where: { referral_uid: uid, isRefererBranch: 0 },
-                }                // { transaction: t }
-              )
+              .findOne({
+                where: { referral_uid: uid, isRefererBranch: 0 /* isRefererBranch = 0  =>  일반회원 추천인 */ },
+                raw: true, 
+              })
               .then(async (resp) => {
                 if (resp) {
                   let winner_referer_uid = resp.referer_uid;
@@ -544,12 +584,8 @@ const settlebets = async (
                           return value_;
                         });
                       fee_to_referer = (earned * FEE_TO_REFERER) / 10000;
-                      earned_after_fee =
-                        earned_after_fee -
-                        // earned -
-                        // fee_to_admin - // 본사 수수료 지급
-                        // fee_to_branch - // 총판 수수료 지급
-                        fee_to_referer; // 추천인 수수료 지급
+                      earned_after_fee = earned_after_fee - fee_to_referer;
+                       
                       await db['logfees'].create(
                         {
                           betId: id,
@@ -560,8 +596,8 @@ const settlebets = async (
                           betamount: v.amount,
                           bet_expiry: expiry,
                           assetId,
+                          fee_value: FEE_TO_REFERER
                         }
-                        // {                        //   transaction: t,                        // }
                       );
                       await updatelogdaily({
                         fieldname: 'sumfeeuser',
@@ -575,77 +611,14 @@ const settlebets = async (
                             uid: winner_referer_uid,
                             typestr: v.type,
                           },
-                        }                         // {                        //   transaction: t,                        // }
+                        }                              
                       );
                     });
                 }
               });
-            // console.log('earned_after_fee', earned_after_fee);
+
             let total = Number(earned_after_fee) + Number(v.amount);
-            let admin , branchrootid
-						if ( B_REFERENCE_BRANCH_TABLE ) {
-							let hq = await db['branchusers'].findOne( { raw : true , where : {typestr : 'hq' } } )
-							admin = hq
-							let { rootuserid : branchrootid } = hq
-						}
-						else {							admin = await db['users'].findOne(              {                where: { isadmin: 2 },              raw: true,              }                          ); // {              //   transaction: t,              // }
-						}
-            let branch;
-            await db['referrals']
-              .findOne(                {                  where: { referral_uid: uid, isRefererBranch: 1 },                  raw: true,                }                // {                //   transaction: t,                // }
-              )
-              .then((resp) => {
-                if (resp) {                  branch = resp;                }
-              });
-            // Fee to ad min and update ad min's balance
-            await db['logfees'].create({
-              betId: id,
-              payer_uid: uid,
-              recipient_uid: ( B_REFERENCE_BRANCH_TABLE ? branchrootid : admin.id ) ,
-              feeamount: fee_to_admin,
-              typestr: 'FEE_TO_ADMIN',
-              betamount: v.amount,
-              bet_expiry: expiry,
-              assetId,
-            });
-            await updatelogdaily({
-              fieldname: 'sumfeeadmin',
-              incvalue: +fee_to_admin / 10 ** 6,
-            });             // { transaction: t }
-            await db['balances'].increment(
-              ['total', 'avail'],
-              {                by: fee_to_admin,
-                where: { uid: ( B_REFERENCE_BRANCH_TABLE ? branchrootid : admin.id ) , typestr: v.type },
-              }              // {              //   transaction: t,              // }
-            );
-            // Fee to branch and update branch's balance
-            if (branch) {
-              await db['logfees'].create({
-                betId: id,
-                payer_uid: uid,
-                recipient_uid: branch.referer_uid,
-                feeamount: fee_to_branch,
-                typestr: 'FEE_TO_BRANCH',
-                betamount: v.amount,
-                bet_expiry: expiry,
-                assetId,
-              });
-              await updatelogdaily({
-                fieldname: 'sumfeebranch',
-                incvalue: +fee_to_branch / 10 ** 6,
-              });
-              // { transaction: t }
-              await db['balances'].increment(
-                ['total', 'avail'],
-                {
-                  by: fee_to_branch,
-                  where: { uid: branch.referer_uid, typestr: v.type },
-                }
-                // {
-                //   transaction: t,
-                // }
-              );
-            }
+            
             // update winner's balance
             await db['balances'].decrement(
               'locked',
@@ -653,21 +626,11 @@ const settlebets = async (
                 by: v.amount,
                 where: { uid: v.uid, typestr: v.type },
               }
-              // {
-              //   transaction: t,
-              // }
             );
-            // .then((resp) => {
-            //   if (v.uid === 119) {
-            //     console.log('winer locked', resp);
-            //   }
-            // });
+
             await db['balances'].increment(
               'avail',
               { by: total, where: { uid: v.uid, typestr: v.type } }
-              // {
-              //   transaction: t,
-              // }
             );
             await db['balances'].increment(
               'total',
@@ -675,27 +638,17 @@ const settlebets = async (
                 by: +earned_after_fee,
                 where: { uid: v.uid, typestr: v.type },
               }
-              // {
-              //   transaction: t,
-              // }
             );
             let winAmount = (earned_after_fee / 10 ** 6).toFixed(2); 
             await db['betlogs'].update({ winamount: winAmount },{ where: { id: v.id } })
           });
         });
-      // await t.commit();
-      // console.log('@transaction commit');
-      // } catch (error) {
-      //   console.log(error);
-      // await t.rollback();
-      // }
     }
     /////////////////////////////////////////////////////////// DEMO
   } else if (live_demo[1]) {
     console.log('DEMO');
     if (winnerTotalAmount === 0 || loserTotalAmount === 0) {
     } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
-      // const t = await db.sequelize.transaction();
       try {
         await db['betlogs']          .findAll({
             where: {
@@ -714,9 +667,6 @@ const settlebets = async (
                   by: -1 * v.amount,
                   where: { uid: v.uid, typestr: v.type },
                 }
-                // {
-                //   transaction: t,
-                // }
               );
             });
           });
@@ -752,16 +702,10 @@ const settlebets = async (
                   by: -1 * v.amount,
                   where: { uid: v.uid, typestr: v.type },
                 }
-                // {
-                //   transaction: t,
-                // }
               );
               await db['balances'].increment(
                 'avail',
                 { by: v.amount + earned, where: { uid: v.uid, typestr: v.type } }
-                // {
-                //   transaction: t,
-                // }
               );
               await db['balances'].increment(
                 'total',
@@ -769,19 +713,13 @@ const settlebets = async (
                   by: v.amount,
                   where: { uid: v.uid, typestr: v.type },
                 }
-                // {
-                //   transaction: t,
-                // }
               );
               let winAmount = (earned / 10 ** 6).toFixed(2)
               await db['betlogs'].update({ winamount: winAmount },{ where: { id: v.id } })
             });
           });
-        // await t.commit();
-        // console.log('@DEMO transaction commit');
       } catch (error) {
         console.log(error);
-        // await t.rollback();
       }
     }
   }

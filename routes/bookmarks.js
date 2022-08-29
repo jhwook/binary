@@ -15,6 +15,9 @@ router.get("/", function (req, res, next) {
 router.post('/:type/:targetId', auth, async (req, res) => {
     let { type, targetId } = req.params;
     let { id } = req.decoded;
+    // console.log('bookmark id',id);
+    if(id) {
+
     if (type == "assets") {
         let findAsset = await db['assets'].findOne({
             where:{
@@ -55,21 +58,25 @@ router.post('/:type/:targetId', auth, async (req, res) => {
                 }
             })
     }
+}
 })
 
 router.get('/my', auth, async(req, res)=>{
     let{id} = req.decoded;
-    db['bookmarks'].findAll({
-        where:{
-            uid: id
-        },
-        include:[{
-            model: db['assets']
-        }]
-    })
-    .then(respdata=>{
-        respok(res, null, null, {respdata})
-    })
+    // console.log('bookmark/my id', id);
+    if(id) {
+        db['bookmarks'].findAll({
+            where:{
+                uid: id
+            },
+            include:[{
+                model: db['assets']
+            }]
+        })
+        .then(respdata=>{
+            respok(res, null, null, {respdata})
+        })
+    }
 })
 
 module.exports = router;

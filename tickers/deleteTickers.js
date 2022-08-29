@@ -2,9 +2,6 @@ const cron = require('node-cron');
 const db = require('../models');
 let { Op } = db.Sequelize;
 
-cron.schedule('0 * * * * *', async () => {
-  deleteTickers();
-});
 deleteTickers = async () => {
   await db['assets']
     .findAll({
@@ -37,3 +34,7 @@ deleteTickers = async () => {
       await Promise.all(promises);
     });
 };
+
+cron.schedule('0 * * * * *', async () => {
+  deleteTickers();
+});

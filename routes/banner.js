@@ -22,7 +22,7 @@ router.post(
       req.body;
     let { date0, date1 } = req.query;
     console.log(req.files);
-
+    console.log(req.body)
     db['banners']
       .create({
         pc_imageurl: `${WEB_URL}/banners/${pc[0].filename}`,
@@ -30,7 +30,7 @@ router.post(
         startDate: date0,
         endDate: date1,
         exposure,
-        exposure_posiiton,
+        exposure_position,
         status,
         // description,
         // type,

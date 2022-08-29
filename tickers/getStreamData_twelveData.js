@@ -11,7 +11,7 @@ const cliredisa = require('async-redis').createClient();
 const getAssetSymbolList = async () => {
   let assetSymbolList = [];
   await db['assets'].findAll({
-    where: { active: 1 },
+    where: { active: 1, group: 3 },
     raw: true,
   }).then((resp) => {
     resp.map((el) => {
@@ -56,6 +56,6 @@ const sendTwelveDataSocketEvent = async () => {
   });
 }
 
-sendTwelveDataSocketEvent();
+// sendTwelveDataSocketEvent();
 
-module.exports = { sendTwelveDataSocketEvent };
+// module.exports = { sendTwelveDataSocketEvent };

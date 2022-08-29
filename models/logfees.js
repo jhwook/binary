@@ -68,6 +68,10 @@ module.exports = function(sequelize, DataTypes) {
     nettype: {
       type: DataTypes.STRING(60),
       allowNull: true
+    },
+    fee_value: {
+      type: DataTypes.INTEGER(5),
+      allowNull: true
     }
   }, {
     sequelize,

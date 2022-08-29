@@ -21,7 +21,6 @@ const { v4: uuidv4 } = require('uuid');
 const e = require('express');
 const KEYS = Object.keys;
 const ISFINITE = Number.isFinite;
-
 // router.get( '/daily-summary/:id' , auth , async ( req,res)=>{
 router.get('/daily-summary/:id', async (req, res) => {
   //	let { id } =req.decoded

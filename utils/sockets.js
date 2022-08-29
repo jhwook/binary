@@ -30,7 +30,7 @@ const unbindIpPortSocket = (address, socketid, port) => {
   return false;
 }; //
 const bindUsernameSocketid = (username, socketid) => {
-  // cliredisa.hset(KEYNAME_SOCKETID_USERNAME, socketid, username);
+  cliredisa.hset(KEYNAME_SOCKETID_USERNAME, socketid, username);
   cliredisa.hset(KEYNAME_USERNAME_SOCKETID, username, socketid);
 };
 const bindUseridSocketid = (userid, socketid) => {

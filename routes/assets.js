@@ -14,6 +14,8 @@ const { upload_symbol } = require('../utils/multer');
 const moment = require('moment');
 const WEB_URL = 'https://options1.net/resource';
 
+const { sendTickerDataSocketEvent } = require('../tickers/getStreamData_finnhub.js');
+
 // router.get('/', function (req, res, next) {
 //   res.send('respond with a resource');
 // });
@@ -41,11 +43,8 @@ router.get('/list', softauth, async (req, res) => {
   //   jfilter = { ...jfilter, active: 1 };
   // }
 
-  console.log('jfilter', jfilter);
-  console.log(req.decoded);
   if (req.decoded) {
     if (req.decoded.id) {
-      id = req.decoded.id;
       db['assets']
         .findAll({
           where: {
@@ -59,7 +58,7 @@ router.get('/list', softauth, async (req, res) => {
             let assetId = el.id;
             await db['bookmarks']
               .findOne({
-                where: { assetsId: assetId, uid: id },
+                where: { assetsId: assetId, uid: req.decoded.id },
                 raw: true,
               })
               .then((resp) => {
@@ -128,14 +127,8 @@ router.post('/image/add/:assetId', upload_symbol.single('img'), (req, res) => {
   });
 });
 
-router.post('/aaa', upload_symbol.single('img'), (req, res) => {
-  console.log(req.file);
-
-  let { name } = req.body;
-  console.log(name);
-  respok(res, null, null, req.files);
-});
 const MAP_GROUPS_ALLOWED = { crypto: 1, forex: 1, stock: 1 };
+
 router.post('/add/:type', upload_symbol.single('img'), async (req, res) => {
   // type => crypto / forex / stock
   LOGGER('', req.body);
@@ -153,7 +146,7 @@ router.post('/add/:type', upload_symbol.single('img'), async (req, res) => {
   let symbol, dispSymbol, APISymbol, socketAPISymbol;
   symbol = `${baseAsset}_${targetAsset}`;
   dispSymbol = `${baseAsset}${targetAsset}`;
-  APISymbol = `${baseAsset}/${targetAsset}`;
+ 
   let groupstr = type;
   if (MAP_GROUPS_ALLOWED[groupstr]) {
   } else {
@@ -170,7 +163,8 @@ router.post('/add/:type', upload_symbol.single('img'), async (req, res) => {
   // } else {
   // }
   if (type === 'crypto') {
-    APISymbol = APISymbol.slice(0, -1);
+    // APISymbol = APISymbol.slice(0, -1);
+    APISymbol = `${baseAsset}${targetAsset}`;
     db['assets']
       .create({
         group: 1,
@@ -189,6 +183,7 @@ router.post('/add/:type', upload_symbol.single('img'), async (req, res) => {
         respok(res, null, null, { resp });
       });
   } else if (type === 'forex') {
+    APISymbol = `${baseAsset}/${targetAsset}`;
     db['assets']
       .create({
         group: 2,
@@ -249,6 +244,7 @@ router.patch('/setting/:assetId/:active', adminauth, async (req, res) => {
   db['assets'] //    .update({      ...jupdates,		    })
     .update(jupdates, { where: { id: assetId } })
     .then((resp) => {
+      sendTickerDataSocketEvent()
       respok(res, 'successfully modified');
     })
     .catch((err) => {
@@ -277,20 +273,84 @@ router.get('/search', async (req, res) => {
     });
 });
 
-router.get('/api', async (req, res) => {
-  await axios
-    .get('https://api.twelvedata.com/stocks?exchange=HKEX&?source=docs')
-    .then((resp) => {
-      resp.data.data.forEach((el) => {
-        let { currency, name, symbol } = el;
-        db['twelvedataapisymbols'].create({
-          symbol: symbol,
-          description: name,
-          assetkind: 'stock',
-        });
-      });
-    });
-});
+// router.get('/api', async (req, res) => {
+//   // await axios
+//   //   .get('https://api.twelvedata.com/stocks?exchange=HKEX&?source=docs')
+//   //   .then((resp) => {
+//   //     resp.data.data.forEach((el) => {
+//   //       let { currency, name, symbol } = el;
+//   //       db['twelvedataapisymbols'].create({
+//   //         symbol: symbol,
+//   //         description: name,
+//   //         assetkind: 'stock',
+//   //       });
+//   //     });
+//   //   });
+//   await axios
+//     .get('https://finnhub.io/api/v1/forex/symbol?exchange=fxcm&token=c9se572ad3i4aps1soq0')
+//     .then((resp) => {
+//       // console.log(resp.data);
+//       // respok(res,null,null, resp.data)
+//       resp.data.forEach((el) => {
+//         let { description, displaySymbol, symbol } = el;
+  
+//         let targetAsset = displaySymbol.split('/')[0]
+//         let baseAsset = displaySymbol.split('/')[1]
+//         let vendor = symbol.split(':')[0];
+//         let symbol_ = symbol.split(':')[1];
+//         console.log(targetAsset,baseAsset,vendor,symbol_);
+//         db['finnhubapisymbols'].create({
+//           symbol: symbol_,
+//           description: description,
+//           assetkind: 'forex',
+//           exchanges: vendor,
+//           targetAsset: targetAsset,
+//           baseAsset: baseAsset
+//         });
+//       });
+//     });
+// });
+
+router.get('/api/docs/:type/:offset/:limit', async (req, res) => {
+  let { type, offset, limit } = req.params;
+  let { searchkey } = req.query;
+  offset = +offset;
+  limit = +limit;
+  let jfilter = {};
+  if(searchkey) {
+    jfilter = {
+      ...jfilter,
+      description : {
+        [Op.like]: `%${searchkey}%`
+      },
+    }
+  }
+  if(type === 'crypto' || type === 'forex') {
+    await db['finnhubapisymbols'].findAndCountAll({
+      where: {
+        ...jfilter,
+        assetkind: type
+      },
+      raw: true,
+      offset,
+      limit,
+    }).then((resp) => {
+      respok(res, null, null, resp);
+    })
+  } else if(type === 'stock') {
+    await db['twelvedataapisymbols'].findAndCountAll({
+      where: {
+        ...jfilter,
+        assetkind: type
+      },
+      raw: true,
+      offset,
+      limit,
+    }).then((resp) => {
+      respok(res, null, null, resp);
+    })
+  }
+})
 
 router.get('/ticker/price', async (req, res) => {
   let { symbol } = req.query;

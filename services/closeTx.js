@@ -24,6 +24,9 @@ const ASSETID_SYMBOL = [
   '0700.HK',
   '600519.SS',
 ];
+
+const { sendTelegramBotMessage } = require('../services/telegramMessageBot.js')
+
 //closeTx({txhash, type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
 const closeTx = async (jargs) => {
   console.log('@@@@@@@@@@@@@@@@@@closeTx');
@@ -55,6 +58,14 @@ const closeTx = async (jargs) => {
                     where: { uid: userid, typestr: 'LIVE' },
                   })
                   .then((_) => {
+                       let messageBody = `[DEPOSIT SUCCESS]
+                          user id: ${userid}
+                          amount: ${amount / 10 ** 6}
+                          token: ${tokentype}
+                          senderaddr address: ${senderaddr}
+                          txhash: ${txhash}
+                        `
+                        sendTelegramBotMessage(messageBody) 
                     console.log(
                       `DEPOSIT:: UID: ${userid} to ADMIN, amount of ${amount} ${tokentype}`
                     );

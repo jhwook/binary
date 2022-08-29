@@ -84,7 +84,7 @@ const get_tickers = async () => {
   let list_assets = await findall('assets', { active: 1 });
   let list_tickers = await cliredisa.hgetall('STREAM_ASSET_PRICE');
   list_assets.forEach((elem) => {
-    let { socketAPISymbol: symbol, id } = elem;
+    let { APISymbol: symbol, id } = elem;
     let price = list_tickers[symbol];
     jtickers_by_symbol[symbol] = price;
     jtickers_by_i[id] = price;

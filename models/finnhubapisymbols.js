@@ -42,6 +42,14 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
         defaultValue: 1,
       },
+      baseAsset: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      },
+      targetAsset: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+      }
     },
     {
       sequelize,

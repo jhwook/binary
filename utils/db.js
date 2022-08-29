@@ -12,8 +12,8 @@ const sumrows= async (tablename, fieldname, jfilter)=>{
 	if ( resp ) {return resp[0][0]['sum'] }	
 	else { return null }
 }
-const getrandomrow=async tablename=>{
-  let aresp= await db[tablename].findAll({ order: db.Sequelize.literal('rand()'), limit: 1 })
+const getrandomrow=async ( tablename , jfilter) =>{
+  let aresp= await db[tablename].findAll({ raw: true , order: db.Sequelize.literal('rand()'), limit: 1 , where : jfilter })
   return aresp && aresp[0] ? aresp[0] : null
 }
 const update_min_or_max =async(tablename,jfilter, fieldname, val1 , oper_min_or_max )=>{

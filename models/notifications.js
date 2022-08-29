@@ -74,8 +74,13 @@ module.exports = function(sequelize, DataTypes) {
       allowNull: true
     },
     enrollDate: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.STRING(100),
       allowNull: true
+    },
+    viewcount: {
+      type: DataTypes.INTEGER(20),
+      allowNull: true,
+      defaultValue: 0
     }
   }, {
     sequelize,

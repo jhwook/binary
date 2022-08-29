@@ -3,6 +3,7 @@ const { web3: web3API } = require('../configs/configweb3');
 const { contractaddr } = require('../configs/addresses');
 const { abi: abierc20 } = require('../contracts/abi/ERC20');
 const db = require('../models');
+const { sendTelegramBotMessage } = require('../services/telegramMessageBot.js')
 
 async function getConfirmations(socket, txHash) {
   try {
@@ -63,6 +64,17 @@ async function confirmEtherTransaction(
         'Transaction with hash ' + txHash + ' has been successfully confirmed'
       );
       socket.emit('transactions', { txHash });
+
+      // let messageBody = `[WITHDRAW ON GOING]
+      //   user id: ${id}
+      //   amount: ${amount / 10 ** 6}
+      //   token: ${tokentype}
+      //   admin address: ${ADMINADDR}
+      //   to address: ${rxaddr}
+      //   txhash: ${txhash}
+      //   withdraw fee: ${feeamount}
+      // `
+      // sendTelegramBotMessage(messageBody) 
 
       return 'Finished';
     }

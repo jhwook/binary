@@ -4,6 +4,7 @@ const MIN_TOKEN_AMOUNT_TO_WITHDRAW = 1;
 const db = require('../models');
 const { abi: abierc20 } = require('../contracts/abi/ERC20');
 const GAS_LIMIT_TOKEN = '';
+const { sendTelegramBotMessage } = require('../services/telegramMessageBot.js')
 const withdraw = async (jdata) => {
   return new Promise(async (resolve, reject) => {
     let { userid, tokentype, amount, rxaddr, adminaddr, adminpk
@@ -92,6 +93,15 @@ const withdraw = async (jdata) => {
                   },
                 }
               );
+              let messageBody = `[WITHDRAW SUCCESS]
+                user id: ${userid}
+                amount: ${amount / 10 ** 6}
+                token: ${tokentype}
+                from: ${adminaddr}
+                to: ${rxaddr}
+                txhash: ${signedTx.transactionHash}
+              `
+              sendTelegramBotMessage(messageBody) 
               resolve({ status: 'OK', message: hash });
             }
           }

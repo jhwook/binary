@@ -11,12 +11,12 @@ const getTickerPrice_sec = async () => {
     .then(async (resp) => {
       resp.map(async (el) => {
         let { socketAPISymbol, APISymbol, id } = el;
-				if ( APISymbol ) {}
+				if ( socketAPISymbol ) {}
 				else { return null  }
-        let price = await cliredisa.hget('STREAM_ASSET_PRICE', APISymbol);
+        let price = await cliredisa.hget('STREAM_ASSET_PRICE', socketAPISymbol);
         if(price) {
           db['tickerprice'].create({
-            symbol: APISymbol,
+            symbol: socketAPISymbol,
             price: price,
             assetId: id
           });

@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const app = require('express')();
 var http = require('http');
 const jwt = require('jsonwebtoken');
@@ -102,7 +104,7 @@ app.io
             return next(new Error('Auth err'));
           } else {
           }
-          console.log('============================', decoded);
+          // console.log('============================', decoded);
           socket.decoded = decoded;
           next();
         }
@@ -131,7 +133,7 @@ app.io
         }
       }
     );
-    console.log('userid', userid);
+    // console.log('userid', userid);
     let connectionkey = getconnectionkey(userid, socket);
     let respconnection = await query_is_connection_on(connectionkey);
     // if (respconnection) {
@@ -144,7 +146,7 @@ app.io
     if (userid) {
       // bindUsernameSocketid(userid, socket.id);
       cliredisa.hset(KEY_S2U, socketid, userid); // username
-      console.log(KEY_S2U, socketid, userid);
+      // console.log(KEY_S2U, socketid, userid);
       await db['mapsockets'].create({
         userid,
         useragent:
@@ -157,7 +159,7 @@ app.io
     }
     const address = socket.request.connection.remoteAddress; // getipsocket(socket) // socket.request.connection.remoteAddress // socket.handshake.address
     const port = socket.request.connection.remotePort; //  LOGGER(socket.request.connection)
-    LOGGER(`=====socket.id},${address},${port}, socket connected=======`);
+    // LOGGER(`=====socket.id},${address},${port}, socket connected=======`);
     // LOGGER('rz9TWxHI6C', socket.request._query);
     // LOGGER(socket.handshake.query);
     /**	socket.emit('test', 'wss connected');
@@ -169,7 +171,7 @@ app.io
 
     socket.on('disconnect', async () => {
       const address = socket.request.connection.remoteAddress;
-      LOGGER(`${socket.id},${address},${port} socket DISconnected`); //   username && unbindsocket(username);
+      // LOGGER(`${socket.id},${address},${port} socket DISconnected`); //   username && unbindsocket(username);
 
       try {
         moverow('mapsockets', { connectionkey }, 'logmapsockets', {});
@@ -188,7 +190,7 @@ const find_and_noti_bet_result = async (_) => {
   let startofminute = moment().startOf('minute').unix();
   // console.log('find_and_noti_bet_result', KEY_S2U);
   let socketlist = await cliredisa.hgetall(KEY_S2U);
-  console.log('socketlist', socketlist);
+  // console.log('socketlist', socketlist);
   if (socketlist) {
     socketlist = Object.entries(socketlist);
   } else {
@@ -202,11 +204,12 @@ const find_and_noti_bet_result = async (_) => {
     // let [username, usersocketid] = socketlist[idx];
     let socketobject = await app.io.sockets.allSockets();
     // socketobject = Object.hasOwn(usersocketid);
-    console.log(usersocketid);
-    console.log('socketobject', socketobject);
-    for (let el of socketobject) {
-      console.log(el);
-      if (el === usersocketid) {
+    // console.log(usersocketid);
+    // console.log('socketobject', socketobject);
+    for(let el of socketobject) {
+      // console.log(el);
+      if(el === usersocketid) {
+
       }
     }
     // console.log('app.io.sockets', await app.io.sockets.allSockets());
@@ -302,11 +305,11 @@ if (false) {
   });
 }
 
-cron.schedule('1 * * * * *', () => {
-  let now_unix = moment().startOf('minute').unix();
-  console.log('@betCloseMessage', now_unix);
-  // find_and_noti_bet_result();
-});
+// cron.schedule('1 * * * * *', () => {
+//   let now_unix = moment().startOf('minute').unix();
+//   console.log('@betCloseMessage', now_unix);
+//   // find_and_noti_bet_result();
+// });
 // cron.schedule('*/10 * * * * *', (_) => {
 //   LOGGER('tick ', moment());
 // });

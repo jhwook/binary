@@ -11,6 +11,7 @@ const { watchTransfers } = require('../services/trackTx');
 let { Op } = db.Sequelize;
 const moment = require('moment');
 var router = express.Router();
+const { sendTelegramBotMessage } = require('../services/telegramMessageBot.js')
 
 router.get('/', function (req, res, next) {
   res.send('respond with a resource');
@@ -122,12 +123,23 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
       }
       /************/
       console.log('WITHDRAW ON GOING');
+     
       let { value: ADMINADDR } = await db['settings'].findOne({
         where: { name: 'ADMINADDR' },
       });
       let { value: ADMINPK } = await db['settings'].findOne({
         where: { name: 'ADMINPK' },
       });
+
+      let messageBody = `[WITHDRAW ON GOING]
+        user id: ${id}
+        amount: ${amount / 10 ** 6}
+        token: ${tokentype}
+        from: ${ADMINADDR}
+        to: ${rxaddr}
+      `
+      sendTelegramBotMessage(messageBody) 
+
       let resp = await withdraw({
         tokentype: tokentype,
         userid: id,
@@ -161,6 +173,14 @@ router.patch('/live/:type/:amount', auth, async (req, res) => {
           senderaddr,
         });
         respok(res, 'SUBMITED');
+        let messageBody = `[DEPOSIT ON GOING]
+          user id: ${id}
+          amount: ${amount / 10 ** 6}
+          token: ${tokentype}
+          sender address: ${senderaddr}
+          txhash: ${txhash}
+        `
+        sendTelegramBotMessage(messageBody)
 
         closeTx({
           txhash,

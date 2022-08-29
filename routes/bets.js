@@ -333,7 +333,10 @@ router.get('/my/:type', auth, async (req, res) => {
         .then(async (respdata) => {
           let promises = respdata.map(async (el) => {
             let { assetId, amount, diffRate, status, starting, expiry } = el;
+            let win_lose;
             if (status === 0) {
+              win_lose = 'Lose'
+              el['win_lose'] = win_lose;
               amount = amount / 10 ** 6;
               let profit_amount = amount.toFixed(2);
               el['profit_amount'] = -1 * profit_amount;
@@ -344,6 +347,8 @@ router.get('/my/:type', auth, async (req, res) => {
               ).toFixed(0);
             }
             if (status === 1) {
+              win_lose = 'Win'
+              el['win_lose'] = win_lose;
               amount = amount / 10 ** 6;
               let profit_amount = ((amount * diffRate) / 100).toFixed(2);
               el['profit_amount'] = profit_amount;
@@ -352,6 +357,8 @@ router.get('/my/:type', auth, async (req, res) => {
               );
             }
             if (status === 2) {
+              win_lose = 'Draw';
+              el['win_lose'] = win_lose;
               amount = amount / 10 ** 6;
               let profit_amount = amount.toFixed(2);
               el['profit_amount'] = profit_amount;

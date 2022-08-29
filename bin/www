@@ -111,7 +111,7 @@ const betClosedSocketMessage = async () => {
   let socketList = await cliredisa.hgetall('USERNAME2SOCKID');
   if (socketList) {
     socketList = Object.entries(socketList);
-    console.log('socketList', socketList);
+    // console.log('socketList', socketList);
   } else {
     return;
   } 
@@ -152,11 +152,52 @@ const betClosedSocketMessage = async () => {
   }
 }
 
+const sendTickerDataToClient = async () => {
+  let tickerListObject = await cliredisa.hgetall('STREAM_ASSET_PRICE')
+  // if(tickerList) {
+  //   tickerList = Object.entries(tickerList);
+  // }
+  console.log(tickerListObject);
+  for(let symbol in tickerListObject) {
+    let price = await cliredisa.hget('STREAM_ASSET_PRICE', symbol)
+    console.log(symbol, price);
+  }
+
+  
+}
+//  {
+//      BTCUSDT: '21443.49000',
+//      'GBP/USD': '1.18034',
+//      'EUR/USD': '0.99609',
+//      'USD/JPY': '136.87000',
+//      ETHUSDT: '1665.65000',
+//      'USD/CAD': '1.29528',
+//      'USD/CHF': '0.94877',
+//      ALGOUSDT: '0.30100',
+//      XRPUSDT: '0.34730',
+//      '0700': '322.80000',
+//      'ETH/USD': '1666.20000',
+//      'BTC/USD': '21440.70000',
+//      'ALGO/USD': '0.30100',
+//      'XRP/USD': '0.34730'
+//    }
+
+// https_io.on('get_ticker_price', async (data) => {
+//   console.log('get_ticker_price',data);
+//   let price = await cliredisa.hget('STREAM_ASSET_PRICE', data);
+
+//   https_io.emit('get_ticker_price', price);
+// })
+
 cron.schedule('1 * * * * *', () => {
   let now_unix = moment().startOf('minute').unix();
   console.log('@@@@ betClosedSocketMessage @@@@', now_unix);
   betClosedSocketMessage()
 }); 
+
+// cron.schedule('* * * * * *', () => {
+//   sendTickerDataToClient()
+// })
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////  
 
