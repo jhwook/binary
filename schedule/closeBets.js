@@ -107,7 +107,8 @@ const closeBet = async () => {
                 // winside, loseside 총 베팅금액 합산
                 // 배당률 기록
                 // bets 테이블 => bet logs 테이블로 이동
-                bets.map(async (v) => {
+                for(let i = 0; i < bets.length; i++) {
+                  let v = bets[i]
                   startPrice = v.startingPrice;
                   if (!startPrice) {
                     console.log('@@@ no startingPrice');
@@ -250,7 +251,10 @@ const closeBet = async () => {
                       }
                     }
                   }
-                });
+                }
+                // bets.map(async (v) => {
+                  
+                // });
 
                 resolve({
                   i: id,
@@ -405,41 +409,44 @@ const settlebets = async (
     FEE_TO_BRANCH,
     FEE_TO_ADMIN,
     type,
-    status,
     live_demo,
   });
   /////////////////////////////////////////////////////////// DRAW (LIVE && DEMO)
-  await db['betlogs']    .findAll({
-      where: {
-        assetId,
-        expiry,
-        type,
-        status: 2,
-      },
-      raw: true,
-    })
-    .then(async (drawusers) => {
-      if (drawusers.length < 1) {
-        return;
-      }
-      drawusers.map(async (v) => {
-        // console.log(v);
-        await db['balances'].increment('locked', {
-          by: -1 * v.amount,
-          where: { uid: v.uid, typestr: v.type },
-        });
-        await db['balances'].increment('avail', {
-          by: v.amount,
-          where: { uid: v.uid, typestr: v.type },
-        });
-      });
-    });
+  
   /////////////////////////////////////////////////////////// LIVE
   if (live_demo[0]) {
     console.log('LIVE');
-    if (winnerTotalAmount === 0 || loserTotalAmount === 0) {
-    } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
+    type = 'LIVE';
+    if (winnerTotalAmount === 0 && loserTotalAmount === 0) {
+    } else if (winnerTotalAmount !== 0 || loserTotalAmount !== 0) {
+      /////////////////////////////////////////// DRAW
+      await db['betlogs'].findAll({
+        where: {
+          assetId,
+          expiry,
+          type,
+          status: 2,
+        },
+        raw: true,
+      })
+      .then(async (drawusers) => {
+        // console.log('===================== DRAW =====================', drawusers);
+        if (drawusers.length < 1) {
+          return;
+        }
+        drawusers.map(async (v) => {
+          await db['balances'].increment('locked', {
+            by: -1 * v.amount,
+            where: { uid: v.uid, typestr: v.type },
+          });
+          await db['balances'].increment('avail', {
+            by: v.amount,
+            where: { uid: v.uid, typestr: v.type },
+          });
+        });
+      });
       /////////////////////////////////////////// LOSER
+      console.log(assetId, expiry, type);
       await db['betlogs']        .findAll({
           where: {
             assetId,
@@ -451,6 +458,7 @@ const settlebets = async (
         })
         .then(async (losers) => {
           losers.map(async (v) => {
+            // console.log('===================== LOSE =====================', v);
             await db['balances'].decrement(['total', 'locked'], {
               by: v.amount,
               where: { uid: v.uid, typestr: v.type },
@@ -469,6 +477,7 @@ const settlebets = async (
         })
         .then(async (winners) => {
           winners.map(async (v) => {
+            // console.log('===================== WIN =====================', v);
             let { id, uid, assetId } = v;
             let earned = Math.ceil(
               (loserTotalAmount * v.amount) / winnerTotalAmount
@@ -620,10 +629,10 @@ const settlebets = async (
             let total = Number(earned_after_fee) + Number(v.amount);
             
             // update winner's balance
-            await db['balances'].decrement(
+            await db['balances'].increment(
               'locked',
               {
-                by: v.amount,
+                by: -1 * v.amount,
                 where: { uid: v.uid, typestr: v.type },
               }
             );
@@ -647,10 +656,49 @@ const settlebets = async (
     /////////////////////////////////////////////////////////// DEMO
   } else if (live_demo[1]) {
     console.log('DEMO');
-    if (winnerTotalAmount === 0 || loserTotalAmount === 0) {
-    } else if (winnerTotalAmount !== 0 && loserTotalAmount !== 0) {
+    type = 'DEMO';
+    if (winnerTotalAmount === 0 && loserTotalAmount === 0) {
+    } else if (winnerTotalAmount !== 0 || loserTotalAmount !== 0) {
       try {
-        await db['betlogs']          .findAll({
+        /////////////////////////////////////////// DRAW
+        await db['betlogs'].findAll({
+          where: {
+            assetId,
+            expiry,
+            type,
+            status: 2,
+          },
+          raw: true,
+        })
+        .then(async (drawusers) => {
+          // console.log('===================== DRAW =====================', drawusers);
+          if (drawusers.length < 1) {
+            return;
+          }
+          drawusers.map(async (v) => {
+            if(v.uid) {
+              await db['balances'].increment('locked', {
+                by: -1 * v.amount,
+                where: { uid: v.uid, typestr: v.type },
+              });
+              await db['balances'].increment('avail', {
+                by: v.amount,
+                where: { uid: v.uid, typestr: v.type },
+              });
+            } else if(v.uuid) {
+              await db['balances'].increment('locked', {
+                by: -1 * v.amount,
+                where: { uuid: v.uuid, typestr: v.type },
+              });
+              await db['balances'].increment('avail', {
+                by: v.amount,
+                where: { uuid: v.uuid, typestr: v.type },
+              });
+            }
+          });
+        });
+
+        await db['betlogs'].findAll({
             where: {
               assetId,
               expiry,
@@ -661,13 +709,23 @@ const settlebets = async (
           })
           .then(async (losers) => {
             losers.map(async (v) => {
-              await db['balances'].increment(
-                ['total', 'locked'],
-                {
-                  by: -1 * v.amount,
-                  where: { uid: v.uid, typestr: v.type },
-                }
-              );
+              if(v.id) {
+                await db['balances'].increment(
+                  ['total', 'locked'],
+                  {
+                    by: -1 * v.amount,
+                    where: { uid: v.uid, typestr: v.type },
+                  }
+                );
+              } else if(v.uuid) {
+                await db['balances'].increment(
+                  ['total', 'locked'],
+                  {
+                    by: -1 * v.amount,
+                    where: { uuid: v.uuid, typestr: v.type },
+                  }
+                );
+              }
             });
           });
 
@@ -682,40 +740,59 @@ const settlebets = async (
           })
           .then(async (winners) => {
             winners.map(async (v) => {
-              let { uid, uuid } = v;
-
-              if(uid) {
-
-              }
-
-              if(uuid) {
-
-              }
               let earned =
-                Math.ceil((loserTotalAmount * v.amount) / winnerTotalAmount) ||
-                0;
+              Math.ceil((loserTotalAmount * v.amount) / winnerTotalAmount) ||
+              0;
+              if(v.uid) {
+                // update winner's balance
+                await db['balances'].increment(
+                  'locked',
+                  {
+                    by: -1 * v.amount,
+                    where: { uid: v.uid, typestr: v.type },
+                  }
+                );
+                await db['balances'].increment(
+                  'avail',
+                  { by: v.amount + earned, where: { uid: v.uid, typestr: v.type } }
+                );
+                await db['balances'].increment(
+                  'total',
+                  {
+                    by: v.amount,
+                    where: { uid: v.uid, typestr: v.type },
+                  }
+                );
+                let winAmount = (earned / 10 ** 6).toFixed(2)
+                await db['betlogs'].update({ winamount: winAmount },{ where: { id: v.id } })
+              }
 
-              // update winner's balance
-              await db['balances'].increment(
-                'locked',
-                {
-                  by: -1 * v.amount,
-                  where: { uid: v.uid, typestr: v.type },
-                }
-              );
-              await db['balances'].increment(
-                'avail',
-                { by: v.amount + earned, where: { uid: v.uid, typestr: v.type } }
-              );
-              await db['balances'].increment(
-                'total',
-                {
-                  by: v.amount,
-                  where: { uid: v.uid, typestr: v.type },
-                }
-              );
-              let winAmount = (earned / 10 ** 6).toFixed(2)
-              await db['betlogs'].update({ winamount: winAmount },{ where: { id: v.id } })
+              if(v.uuid) {
+                  // update winner's balance
+                await db['balances'].increment(
+                  'locked',
+                  {
+                    by: -1 * v.amount,
+                    where: { uuid: v.uuid, typestr: v.type },
+                  }
+                );
+                await db['balances'].increment(
+                  'avail',
+                  { by: v.amount + earned, where: { uuid: v.uuid, typestr: v.type } }
+                );
+                await db['balances'].increment(
+                  'total',
+                  {
+                    by: v.amount,
+                    where: { uuid: v.uuid, typestr: v.type },
+                  }
+                );
+                let winAmount = (earned / 10 ** 6).toFixed(2)
+                await db['betlogs'].update({ winamount: winAmount },{ where: { id: v.id } })
+              }
+             
+
+              
             });
           });
       } catch (error) {
@@ -724,7 +801,6 @@ const settlebets = async (
     }
   }
 };
-// };
 
 module.exports = {
   closeBet,
