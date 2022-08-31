@@ -399,7 +399,6 @@ router.get('/sum/rows/:tablename/:fieldname', async (req, res) => {
     jfilter[filterkey] = filterval;
   }
   // jfilter[fieldname] = fieldval;
-  console.log('req.query', req.query);
 
   if (date0) {
     startDate = moment(date0).format('YYYY-MM-DD HH:mm:ss');
@@ -447,8 +446,6 @@ router.get('/count/rows/:tablename/:col', async (req, res) => {
   let { searchkey } = req.query;
   let jfilter = {};
   // jfilter[fieldname] = fieldval;
-
-  console.log('req.query', req.query);
 
   if (date0) {
     startDate = moment(date0).format('YYYY-MM-DD HH:mm:ss');
@@ -739,7 +736,7 @@ router.get('/betrounds/list/:asset/:offset/:limit', adminauth, async (req, res) 
   if(isadmin === 1 || isadmin === 3) {
     feetype = 'FEE_TO_BRANCH'
   }
-  // asset = crypto / forex / stock
+  // asset = coin / forex / stock
   let assetList;
   let list = [];
   offset = +offset;
@@ -894,7 +891,6 @@ router.get('/asset/list/:offset/:limit', adminauth, async (req, res) => {
       raw: true,
     })
     .then((resp) => {
-      console.log(resp);
       let promises = resp.map(async (el) => {
         let { id } = el;
         let [{ sum_balance }] = await db['balances'].findAll({
@@ -981,7 +977,7 @@ router.patch('/levels/setting', async (req, res) => {
   let levels = ['BRONZE', 'SILVER', 'GOLD', 'DIAMOND'];
   let { basepoint0, basepoint1, basepoint2, basepoint3 } = req.body;
   let basepoints = [basepoint0, basepoint1, basepoint2, basepoint3];
-  console.log(req.body);
+
   for (let i = 0; i <= 3; i++) {
     let level_ = levels[i];
     let basepoint_ = basepoints[i];
@@ -1248,20 +1244,24 @@ router.get('/assets', (req, res) => {
   if (searchkey) {
     jfilter = { APISymbol: { [Op.like]: `%${searchkey}%` } };
   }
+  console.log('jfilter', jfilter);
   db['assets']
     .findAll({
       where: { ...jfilter },
       raw: true,
     })
     .then(async (resp) => {
+      console.log(resp);
       let promises = resp.map(async (el) => {
-        let { socketAPISymbol } = el;
-        let currentPrice = await cliredisa.hget(
-          'STREAM_ASSET_PRICE',
-          socketAPISymbol
-        );
-        // console.log(APISymbol, currentPrice);
-        el['currentPrice'] = currentPrice;
+        if(el.APISymbol) {
+          let { APISymbol } = el;
+          let currentPrice = await cliredisa.hget(
+            'STREAM_ASSET_PRICE',
+            APISymbol
+          );
+          // console.log(APISymbol, currentPrice);
+          el['currentPrice'] = currentPrice;
+        }
       });
       await Promise.all(promises);
       respok(res, null, null, { resp });
@@ -1638,7 +1638,7 @@ router.get('/transactions/:isbranch/:type/:offset/:limit', async (req, res) => {
       },
     };
   }
-  console.log('searchkey', searchkey);
+
   if (searchkey) {
     let newList = [];
 
@@ -1666,8 +1666,6 @@ router.get('/transactions/:isbranch/:type/:offset/:limit', async (req, res) => {
   };
   // console.log('jfilter', jfilter);
 
-
-  console.log('key', orderkey, orderval);
   db['transactions']
     .findAndCountAll({
       where: {
@@ -2027,8 +2025,6 @@ router.get('/inquiry/:offset/:limit', async (req, res) => {
 
 router.get('/auth', adminauth, async (req, res) => {
   let { id } = req.decoded;
-  console.log(req.admin_level);
-  console.log(req.isadmin);
   respok(res, null, null, {resp: req.decoded});
 });
 

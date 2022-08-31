@@ -3,7 +3,7 @@ const requestIp = require('request-ip');
 let { respok, resperr } = require('../utils/rest');
 const { getobjtype } = require('../utils/common');
 const jwt = require('jsonwebtoken');
-const { auth } = require('../utils/authMiddleware');
+const { auth, softauth } = require('../utils/authMiddleware');
 const db = require('../models');
 const { lookup } = require('geoip-lite');
 var crypto = require('crypto');
@@ -138,7 +138,7 @@ router.get('/demo/token', async (req, res) => {
     timestampunixexpiry,
   });
   let token = jwt.sign({ type: 'JWT', demo_uuid }, process.env.JWT_SECRET, {
-    expiresIn: '3h',
+    expiresIn: '24h',
     issuer: 'EXPRESS',
   });
   // let ipaddr = requestIp.getClientIp(req).replace('::ffff:', '');
@@ -153,6 +153,15 @@ router.get('/demo/token', async (req, res) => {
   //   status: ipinfo.city,
   // });
 
+  await db['demoUsers'].findOne({
+    where: { uuid: demo_uuid },
+    raw: true,
+  }).then((resp) => {
+    if(resp) {
+      respok(res, 'DEMO/TOKEN', null, { token })
+    }
+  })
+
   await db['balances'].create({
     uuid: demo_uuid,
     total: 1000000000,
@@ -160,6 +169,11 @@ router.get('/demo/token', async (req, res) => {
     avail: 1000000000,
     typestr: 'DEMO',
     isMember: 0,
+  });
+  db['usernoticesettings'].create({
+    uuid: demo_uuid,
+    betend: 1,
+    orderrequest: 1,
   });
   respok(res, 'DEMO/TOKEN', null, { token });
 });
@@ -790,10 +804,12 @@ router.post('/login/:type', async (req, res) => {
 
   // respok(res, 'TOKEN_CREATED', null, {token: jwttoken})
 });
-
+ 
 router.get('/notice/setting', auth, async (req, res) => {
-  let { id } = req.decoded;
-  await db['usernoticesettings']
+  
+  if (req.decoded.id) {
+    let { id } = req.decoded;
+    await db['usernoticesettings']
     .findOne({
       where: { uid: id },
       raw: true,
@@ -801,6 +817,17 @@ router.get('/notice/setting', auth, async (req, res) => {
     .then((resp) => {
       respok(res, null, null, { resp });
     });
+  } else if(req.decoded.demo_uuid) {
+    await db['usernoticesettings']
+    .findOne({
+      where: { uuid: req.decoded.demo_uuid },
+      raw: true,
+    })
+    .then((resp) => {
+      respok(res, null, null, { resp });
+    });
+  }
+  
 });
 
 router.patch('/notice/set', auth, async (req, res) => {
@@ -1061,8 +1088,14 @@ router.post('/verify/:type/:code', auth, async (req, res) => {
   }
 });
 
-router.get('/my/position', auth, async (req, res) => {
-  let { id } = req.decoded;
+router.get('/my/position', softauth, async (req, res) => {
+  let id 
+  let result = {};
+  if(!req.decoded) {
+    result['cashback'] = 0
+  } else {
+    id = req.decoded.id
+ 
   let date0 = moment().startOf('days').unix();
   let date1 = moment().endOf('days').unix();
   let start = moment().startOf('days');
@@ -1074,7 +1107,8 @@ router.get('/my/position', auth, async (req, res) => {
   //   resperr(res, 'PLEASE-LOGIN');
   //   return;
   // }
-  let result = {};
+  const I_LEVEL_DISP = ['Bronze', 'Sliver', 'Gold', 'Diamond']
+ 
   let today_betamount;
   let today_lose_amount;
   let today_win_amount;
@@ -1087,8 +1121,21 @@ router.get('/my/position', auth, async (req, res) => {
       raw: true,
     })
     .then(async (resp) => {
-      result['firstName'] = resp.firstname;
-      result['lastName'] = resp.lastname;
+      let name;
+      await db['levelsettings'].findOne({
+        where: { level: resp.level },
+        raw: true,
+      }).then((resp) => {
+        result['level_img'] = resp.imgurl
+        result['level_str'] = I_LEVEL_DISP[resp.level]
+      })
+      if(!resp.firstname && !resp.lastname) {
+        name = resp.id
+      } else {
+        name = `${resp.lastname} ${resp.firstname}`
+      }
+    
+      result['name'] = name
       result['level'] = resp.level;
       if (resp.isadmin === 0) {
         await db['feesettings']
@@ -1097,7 +1144,11 @@ router.get('/my/position', auth, async (req, res) => {
             raw: true,
           })
           .then((resp) => {
-            result['cashback'] = resp.value_ / 100;
+            if(resp) {
+              result['cashback'] = resp.value_ / 100;
+            } else {
+              result['cashback'] = 0;
+            }
           });
       } else if (resp.isadmin === 1 || resp.isadmin === 3) {
         await db['feesettings']
@@ -1106,7 +1157,11 @@ router.get('/my/position', auth, async (req, res) => {
             raw: true,
           })
           .then((resp) => {
-            result['cashback'] = resp.value_ / 100;
+            if(resp) {
+              result['cashback'] = resp.value_ / 100;
+            } else {
+              result['cashback'] = 0;
+            }
           });
       } else if (resp.isadmin === 2) {
         await db['feesettings']
@@ -1119,6 +1174,7 @@ router.get('/my/position', auth, async (req, res) => {
           });
       }
     });
+ 
 
   await db['balances']
     .findOne({
@@ -1146,19 +1202,20 @@ router.get('/my/position', auth, async (req, res) => {
       let today_win_amount = 0;
 
       resp.forEach((bet) => {
-        let { status, amount } = bet;
+        let { status, amount, winamount } = bet;
+        winamount = +winamount
         amount = amount / 10 ** 6;
         today_betamount += amount;
         if (status === 0) {
           today_lose_amount += amount;
         } else if (status === 1) {
-          today_win_amount += amount;
+          today_win_amount += winamount;
         }
       });
 
       result['today_betamount'] = today_betamount;
       result['today_lose_amount'] = today_lose_amount;
-      result['today_win_amount'] = today_win_amount;
+      result['today_win_amount'] = Number(today_win_amount);
       if (today_betamount === 0) {
         result['profit_today'] = 0;
       } else {
@@ -1179,6 +1236,7 @@ router.get('/my/position', auth, async (req, res) => {
       let total_betamount = 0;
       let total_lose_amount = 0;
       let total_win_amount = 0;
+      let net_turnover = 0;
       let min_trade_amount = 0;
       let max_trade_amount = 0;
       let max_trade_profit = 0;
@@ -1200,7 +1258,8 @@ router.get('/my/position', auth, async (req, res) => {
         });
 
       resp.forEach((bet, i) => {
-        let { status, amount, diffRate } = bet;
+        let { status, amount, diffRate, winamount } = bet;
+        winamount = +winamount;
         amount = amount / 10 ** 6;
         total_bet_count += 1;
         // 최대 베팅금
@@ -1215,9 +1274,9 @@ router.get('/my/position', auth, async (req, res) => {
         //최대 수익
         if (
           status === 1 &&
-          max_profit < ((amount * diffRate) / 100).toFixed(2)
+          max_profit < Number(winamount)
         ) {
-          max_profit = ((amount * diffRate) / 100).toFixed(2);
+          max_profit = Number(winamount);
         }
 
         total_betamount += amount;
@@ -1226,22 +1285,28 @@ router.get('/my/position', auth, async (req, res) => {
           total_lose_amount += amount;
         } else if (status === 1) {
           win_count += 1;
-          total_win_amount += amount;
+          total_win_amount += Number((amount * diffRate / 100).toFixed(2))
+          net_turnover += winamount;
         }
       });
 
       result['deal'] = total_bet_count;
       result['trading_turnover'] = total_betamount;
       // result['total_lose_amount'] = total_lose_amount;
+      // total_win_amount = Number(total_win_amount)
       result['total_win_amount'] = total_win_amount;
-      result['total_profit'] = (
-        (total_win_amount / total_betamount) *
-        100
-      ).toFixed(2);
+      if(total_betamount === 0) {
+        result['total_profit'] = 0;
+      } else {
+        result['total_profit'] = (
+          (total_win_amount / total_betamount) *
+          100
+        ).toFixed(2);
+      }
       result['max_trade_amount'] = max_trade_amount;
       result['min_trade_amount'] = min_trade_amount;
       result['max_profit'] = max_profit;
-      result['net_turnover'] = (total_win_amount - total_feeamount).toFixed(2);
+      result['net_turnover'] = (net_turnover);
       result['hedged_trades'] = total_lose_amount;
       if (win_count === 0) {
         result['average_profit'] = 0;
@@ -1251,7 +1316,9 @@ router.get('/my/position', auth, async (req, res) => {
     });
 
   await Promise.all(promises);
+  }
   respok(res, null, null, { result });
+  
 });
 
 router.get('/balance', auth, async (req, res) => {
@@ -1403,20 +1470,26 @@ router.get('/betlogs/:type/:offset/:limit', auth, async (req, res) => {
     })
     .then(async (resp) => {
       let promises = resp.rows.map(async (el) => {
-        let { assetId, amount, diffRate, status } = el;
-        if (status === 0) {
-          amount = amount / 10 ** 6;
-          let profit_amount = amount.toFixed(2);
-          el['profit_amount'] = -1 * profit_amount;
-          el['profit_percent'] = (-1 * (profit_amount / amount) * 100).toFixed(
-            0
-          );
+        let { assetId, amount, diffRate, status, winamount } = el;
+        amount = amount / 10 ** 6;
+        winamount = +winamount;
+        if (status === 0) {    
+          el['profit_amount'] = -1 * amount;
+          el['profit_percent'] = -1 * 100;
         }
         if (status === 1) {
-          amount = amount / 10 ** 6;
-          let profit_amount = ((amount * diffRate) / 100).toFixed(2);
-          el['profit_amount'] = profit_amount;
-          el['profit_percent'] = ((profit_amount / amount) * 100).toFixed(0);
+          let profit_amount = winamount;
+          if(profit_amount === 0) {
+            el['profit_amount'] = '0';
+          } else {
+            el['profit_amount'] = profit_amount;
+          }
+          el['profit_percent'] = profit_amount.toFixed(2);
+        }
+
+        if(status === 2) {
+          el['profit_amount'] = '0';
+          el['profit_percent'] = '0.00';
         }
         let assetName = await db['assets']
           .findOne({ where: { id: assetId }, raw: true })
@@ -1451,8 +1524,10 @@ router.put('/my/info', auth, async (req, res) => {
   delete req.body['phoneVerified'];
   delete req.body['active'];
 
-  db['users'].update({ ...req.body }, { where: { id } }).then((resp) => {
-    respok(res, 'CHANGED');
+  await db['users'].update({ ...req.body }, { where: { id } }).then(async (resp) => {
+    let jwt = await createJWT({ id });
+    
+    respok(res, 'CHANGED', null, { token: jwt });
   });
 });
 router.patch('/profile', auth, async (req, res) => {
