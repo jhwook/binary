@@ -1,0 +1,11 @@
+{
+  "development": {
+    "host": "localhost",
+    "username": "root",
+    "port": 3306,
+    "password": "1234",
+    "database": "binopt",
+    "dialect": "mariadb",
+    "allowPublicKeyRetrieval": true
+  }
+}
