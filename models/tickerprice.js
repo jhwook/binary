@@ -10,15 +10,15 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: false,
         primaryKey: true,
       },
-      // createdat: {
-      //   type: DataTypes.DATE,
-      //   allowNull: true,
-      //   defaultValue: sequelize.fn('current_timestamp'),
-      // },
-      // updatedat: {
-      //   type: DataTypes.DATE,
-      //   allowNull: true,
-      // },
+      createdat: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        defaultValue: sequelize.fn('current_timestamp'),
+      },
+      updatedat: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
       symbol: {
         type: DataTypes.STRING(50),
         allowNull: true,

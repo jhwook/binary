@@ -26,6 +26,7 @@ module.exports = (io, socket) => {
     let respdata;
     if (socket.decoded.id) {
       id = socket.decoded.id;
+      console.log(id);
       respdata = await db['bets'].findAll({
         where: {
           uid: id,
