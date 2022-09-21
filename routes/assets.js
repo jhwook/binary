@@ -235,14 +235,14 @@ router.get('/list', softauth, async (req, res) => {
       });
   }
 });
-const sharp = require('sharp');
+// const sharp = require('sharp');
 router.post('/test/merge-images/:base/:quote', async (req, res) => {
   let { base, quote } = req.params;
   const file0 = '/var/www/html/resource/flags/KOR.png';
   const file1 = '/var/www/html/resource/flags/EUR.jpeg';
   const fileout = `/var/www/html/tmp/${base}-${quote}.png`;
-  let img0 = await sharp(file0);
-  let img1 = await sharp(file1);
+  // let img0 = await sharp(file0);
+  // let img1 = await sharp(file1);
   img0.composite([{ input: file1 }]).toFile(fileout);
   respok(res);
 });
