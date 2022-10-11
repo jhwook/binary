@@ -1,6 +1,7 @@
 const awaitTransaction = require('await-transaction-mined');
 const { web3 } = require('../configs/configweb3');
 const db = require('../models');
+const bot_option = false;
 
 const TXREQSTATUS_POLL_INTERVAL = 3000;
 const TXREQSTATUS_BLOCKCOUNT = 1; // 2 // 4 // 6
@@ -25,7 +26,7 @@ const ASSETID_SYMBOL = [
   '600519.SS',
 ];
 
-const { sendTelegramBotMessage } = require('../services/telegramMessageBot.js')
+const { sendTelegramBotMessage } = require('../services/telegramMessageBot.js');
 
 //closeTx({txhash, type:"DEPOSIT", tokentype: tokentype, userid: id, senderaddr, amount})
 const closeTx = async (jargs) => {
@@ -58,14 +59,17 @@ const closeTx = async (jargs) => {
                     where: { uid: userid, typestr: 'LIVE' },
                   })
                   .then((_) => {
-                       let messageBody = `[DEPOSIT SUCCESS]
+                    let messageBody = `[DEPOSIT SUCCESS]
                           user id: ${userid}
                           amount: ${amount / 10 ** 6}
                           token: ${tokentype}
                           senderaddr address: ${senderaddr}
                           txhash: ${txhash}
-                        `
-                        sendTelegramBotMessage(messageBody) 
+                        `;
+                    if (bot_option) {
+                      sendTelegramBotMessage(messageBody);
+                    }
+
                     console.log(
                       `DEPOSIT:: UID: ${userid} to ADMIN, amount of ${amount} ${tokentype}`
                     );

@@ -145,7 +145,7 @@ const betClosedSocketMessage = async () => {
         profit: profit,
         data: betlog,
       };
-
+      console.log(userId, userSocketId, socketData);
       https_io.to(userSocketId).emit('bet_closed', socketData);
     });
   }

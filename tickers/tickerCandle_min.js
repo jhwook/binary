@@ -4,7 +4,7 @@ const cliredisa = require('async-redis').createClient();
 const moment = require('moment');
 
 const make1MinCandle = async () => {
-  let now_unix = moment().unix()
+  let now_unix = moment().unix();
   await db['assets']
     .findAll({
       where: { active: 1 },
@@ -13,15 +13,17 @@ const make1MinCandle = async () => {
     .then(async (resp) => {
       resp.map(async (el) => {
         let { APISymbol, id } = el;
-				if ( APISymbol ) {}
-				else { return null  }
+        if (APISymbol) {
+        } else {
+          return null;
+        }
         let price = await cliredisa.hget('STREAM_ASSET_PRICE', APISymbol);
-        if(price) {
+        if (price) {
           db['tickercandles'].create({
             symbol: APISymbol,
             price: price,
             assetId: id,
-            timestamp: now_unix
+            timestamp: now_unix,
           });
         }
       });

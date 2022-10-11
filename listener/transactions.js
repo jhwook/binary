@@ -101,38 +101,40 @@ module.exports = (io, socket) => {
         //   ],
         //   raw: true,
         // });
-        let high_bet_amount = await db['bets'].findAll({
-          where: {
-            expiry: v.expiry,
-            type: v.type,
-            assetId: v.assetId,
-            side: 'HIGH',
-          },
-          attributes: [
-            'amount',
-            [
-              db.Sequelize.fn('sum', db.Sequelize.col('amount')),
-              'high_bet_amount',
-            ],
-          ],
-          raw: true,
-        });
-        let low_bet_amount = await db['bets'].findAll({
-          where: {
-            expiry: v.expiry,
-            assetId: v.assetId,
-            type: v.type,
-            side: 'LOW',
-          },
-          attributes: [
-            'amount',
-            [
-              db.Sequelize.fn('sum', db.Sequelize.col('amount')),
-              'low_bet_amount',
-            ],
-          ],
-          raw: true,
-        });
+        let high_bet_amount = 0;
+        let low_bet_amount = 0;
+        // let high_bet_amount = await db['bets'].findAll({
+        //   where: {
+        //     expiry: v.expiry,
+        //     type: v.type,
+        //     assetId: v.assetId,
+        //     side: 'HIGH',
+        //   },
+        //   attributes: [
+        //     'amount',
+        //     [
+        //       db.Sequelize.fn('sum', db.Sequelize.col('amount')),
+        //       'high_bet_amount',
+        //     ],
+        //   ],
+        //   raw: true,
+        // });
+        // let low_bet_amount = await db['bets'].findAll({
+        //   where: {
+        //     expiry: v.expiry,
+        //     assetId: v.assetId,
+        //     type: v.type,
+        //     side: 'LOW',
+        //   },
+        //   attributes: [
+        //     'amount',
+        //     [
+        //       db.Sequelize.fn('sum', db.Sequelize.col('amount')),
+        //       'low_bet_amount',
+        //     ],
+        //   ],
+        //   raw: true,
+        // });
         // let loserTotal = await db['bets'].findAll({
         //   expiry: v.expiry,
         //   where: {
@@ -157,8 +159,10 @@ module.exports = (io, socket) => {
         //   ],
         //   raw: true,
         // });
-        high_bet_amount = high_bet_amount[0].high_bet_amount / 10 ** 6;
-        low_bet_amount = low_bet_amount[0].low_bet_amount / 10 ** 6;
+        // high_bet_amount = high_bet_amount[0].high_bet_amount / 10 ** 6;
+        // low_bet_amount = low_bet_amount[0].low_bet_amount / 10 ** 6;
+        high_bet_amount = 0;
+        low_bet_amount = 0;
         // console.log(winnerTotalAmount, loserTotalAmount);
         // let diffRate = 0;
 

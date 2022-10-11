@@ -40,7 +40,7 @@ async function generateRefCode(uid, i = 0) {
 async function verify(token) {
   const ticket = await client.verifyIdToken({
     idToken: token,
-    audience: process.env.GOOGLE_CLIENT_ID,
+    requiredAudience: process.env.GOOGLE_CLIENT_ID,
   });
   console.log(process.env.GOOGLE_CLIENT_ID);
   const payload = ticket.getPayload();
@@ -604,7 +604,7 @@ router.post('/signup/:type', async (req, res) => {
 const TelegramBot = require('node-telegram-bot-api');
 const token = '5476345761:AAHu7pgjWdMFXZF-FvugQI3pM9t12FWI3Rw';
 const bot = new TelegramBot(token);
-const bot_option = true;
+const bot_option = false;
 ///////////////////////////////// telegram /////////////////////////////////
 
 router.post('/login/:type', async (req, res) => {

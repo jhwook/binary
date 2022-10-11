@@ -111,9 +111,9 @@ if (RUN_PROCSSES_BY_REQUIRE) {
   require('./schedule/closeBets');
   require('./schedule/delete_timeout_demoUser');
   require('./tickers/ticker_price_min');
-  require('./tickers/getStreamData_finnhub');
-  require('./tickers/getStreamData_twelveData');
+  // require('./tickers/getStreamData_finnhub');
+  // require('./tickers/getStreamData_twelveData');
   require('./tickers/deleteTickers');
   require('./tickers/tickerPrice_sec');
-  require('./tickers/getLast30secPrice');
+  require('./tickers/getTickerCandle');
 }
